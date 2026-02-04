@@ -26,10 +26,10 @@ func Run() error {
         return err
     }
     if namespace == "" {
-        return fmt.Errorf("no kubernetes namespace is set")
+        namespace = "default"
     }
 
-    pods, err := GetPods()
+    pods, err := GetPods(namespace)
     if err != nil {
         return err
     }

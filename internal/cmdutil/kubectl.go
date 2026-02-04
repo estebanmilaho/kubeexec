@@ -25,8 +25,12 @@ func CurrentNamespace() (string, error) {
     return strings.TrimSpace(string(out)), nil
 }
 
-func GetPods() ([]string, error) {
-    cmd := exec.Command("kubectl", "get", "pods", "-o", "name")
+func GetPods(namespace string) ([]string, error) {
+    args := []string{"get", "pods", "-o", "name"}
+    if namespace != "" {
+        args = append(args, "-n", namespace)
+    }
+    cmd := exec.Command("kubectl", args...)
     out, err := cmd.Output()
     if err != nil {
         return nil, fmt.Errorf("kubectl get pods failed: %w", err)
@@ -44,14 +48,16 @@ func GetPods() ([]string, error) {
 }
 
 func ExecPod(pod string) error {
-    shell := "bash"
-    check := exec.Command("kubectl", "exec", "-it", pod, "--", "sh", "-c", "command -v bash >/dev/null 2>&1")
-    check.Stdin, check.Stdout, check.Stderr = os.Stdin, os.Stdout, os.Stderr
-    if err := check.Run(); err != nil {
-        shell = "sh"
-    }
-
-    cmd := exec.Command("kubectl", "exec", "-it", pod, "--", shell)
+    cmd := exec.Command(
+        "kubectl",
+        "exec",
+        "-it",
+        pod,
+        "--",
+        "sh",
+        "-c",
+        "command -v bash >/dev/null 2>&1 && exec bash || exec sh",
+    )
     cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
     return cmd.Run()
 }
