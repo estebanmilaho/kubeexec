@@ -1,0 +1,2 @@
+#compdef kubeexec
+_arguments '*: :->args'

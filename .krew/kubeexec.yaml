@@ -1,0 +1,22 @@
+apiVersion: krew.googlecontainertools.github.com/v1alpha2
+kind: Plugin
+metadata:
+  name: kubeexec
+spec:
+  version: "v0.1.0"
+  homepage: "https://github.com/estebanmilaho/kubeexec"
+  shortDescription: "FZF-based kubectl exec into pods"
+  description: "Select a pod with fzf and exec into it."
+  platforms:
+    - selector:
+        matchLabels:
+          os: darwin
+          arch: amd64
+      uri: https://github.com/estebanmilaho/kubeexec/releases/download/v0.1.0/kubeexec_0.1.0_darwin_amd64.tar.gz
+      bin: kubeexec
+    - selector:
+        matchLabels:
+          os: darwin
+          arch: arm64
+      uri: https://github.com/estebanmilaho/kubeexec/releases/download/v0.1.0/kubeexec_0.1.0_darwin_arm64.tar.gz
+      bin: kubeexec

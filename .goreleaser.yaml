@@ -1,0 +1,28 @@
+project_name: kubeexec
+
+builds:
+  - main: ./cmd/kubeexec
+    binary: kubeexec
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+
+archives:
+  - format: tar.gz
+
+release:
+  github:
+    owner: estebanmilaho
+    name: kubeexec
+
+brews:
+  - name: kubeexec
+    homepage: https://github.com/estebanmilaho/kubeexec
+    description: FZF-based kubectl exec into pods
+    license: MIT
+    repository:
+      owner: estebanmilaho
+      name: homebrew-kubeexec
+    install: |
+      bin.install "kubeexec"
+    test: |
+      system "#{bin}/kubeexec", "-version"
