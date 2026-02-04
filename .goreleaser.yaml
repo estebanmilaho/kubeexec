@@ -22,6 +22,7 @@ brews:
     repository:
       owner: estebanmilaho
       name: homebrew-kubeexec
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     install: |
       bin.install "kubeexec"
     test: |
