@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/pflag"
 
@@ -55,7 +56,11 @@ NOTES:
   - If --context or <POD> matches multiple entries, you will be prompted with fzf
 `)
 	}
-	pflag.Parse()
+	if err := pflag.CommandLine.Parse(normalizeContextArgs(os.Args[1:])); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		pflag.Usage()
+		os.Exit(2)
+	}
 	contextRequested := false
 	if f := pflag.Lookup("context"); f != nil && f.Changed {
 		contextRequested = true
@@ -84,4 +89,23 @@ NOTES:
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
+}
+
+func normalizeContextArgs(args []string) []string {
+	normalized := make([]string, 0, len(args))
+	flagsAllowEmpty := map[string]struct{}{
+		"--context":   {},
+		"--container": {},
+	}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if _, ok := flagsAllowEmpty[arg]; ok {
+			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "-") {
+				normalized = append(normalized, arg+"=")
+				continue
+			}
+		}
+		normalized = append(normalized, arg)
+	}
+	return normalized
 }
