@@ -1,6 +1,7 @@
 package cmdutil
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -176,21 +177,33 @@ func kubectlArgs(context string, args ...string) []string {
 }
 
 func runKubectl(timeout time.Duration, args ...string) ([]byte, error) {
-	if timeout <= 0 {
-		cmd := exec.Command("kubectl", args...)
-		return cmd.Output()
+	ctx := context.Background()
+	var cancel context.CancelFunc
+	if timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
 	cmd := exec.CommandContext(ctx, "kubectl", args...)
-	out, err := cmd.Output()
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			msg := strings.TrimSpace(stderr.String())
+			if msg != "" {
+				return nil, fmt.Errorf("kubectl timed out after %s: %s", timeout, msg)
+			}
 			return nil, fmt.Errorf("kubectl timed out after %s", timeout)
+		}
+		msg := strings.TrimSpace(stderr.String())
+		if msg != "" {
+			return nil, fmt.Errorf("%w: %s", err, msg)
 		}
 		return nil, err
 	}
-	return out, nil
+	return stdout.Bytes(), nil
 }
 
 func ExecArgs(context, namespace, pod, container string) []string {
