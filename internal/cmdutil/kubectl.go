@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -34,6 +35,13 @@ func GetContexts() ([]string, error) {
 	return contexts, nil
 }
 
+type PodItem struct {
+	Name    string
+	Ready   string
+	Status  string
+	Display string
+}
+
 func CurrentNamespace(context string) (string, error) {
 	args := []string{"config", "view", "--minify", "--output", "jsonpath={..namespace}"}
 	args = kubectlArgs(context, args...)
@@ -45,8 +53,8 @@ func CurrentNamespace(context string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-func GetPods(context, namespace, selector string) ([]string, error) {
-	args := []string{"get", "pods", "-o", "name"}
+func GetPods(context, namespace, selector string) ([]PodItem, error) {
+	args := []string{"get", "pods", "-o", "custom-columns=NAME:.metadata.name,READY:.status.containerStatuses[*].ready,STATUS:.status.phase", "--no-headers"}
 	if namespace != "" {
 		args = append(args, "-n", namespace)
 	}
@@ -60,13 +68,46 @@ func GetPods(context, namespace, selector string) ([]string, error) {
 		return nil, fmt.Errorf("kubectl get pods failed: %w", err)
 	}
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	var pods []string
+	var pods []PodItem
+	maxName := 0
+	maxReady := 0
+	maxStatus := 0
 	for _, l := range lines {
 		l = strings.TrimSpace(l)
 		if l == "" {
 			continue
 		}
-		pods = append(pods, strings.TrimPrefix(l, "pod/"))
+		fields := strings.Fields(l)
+		if len(fields) == 0 {
+			continue
+		}
+		name := fields[0]
+		readyRaw := ""
+		status := ""
+		if len(fields) > 1 {
+			readyRaw = fields[1]
+		}
+		if len(fields) > 2 {
+			status = fields[2]
+		}
+		ready := formatReady(readyRaw)
+		pods = append(pods, PodItem{
+			Name:   name,
+			Ready: ready,
+			Status: status,
+		})
+		if len(name) > maxName {
+			maxName = len(name)
+		}
+		if len(ready) > maxReady {
+			maxReady = len(ready)
+		}
+		if len(status) > maxStatus {
+			maxStatus = len(status)
+		}
+	}
+	for i := range pods {
+		pods[i].Display = fmt.Sprintf("%-*s  %-*s  %-*s", maxName, pods[i].Name, maxReady, pods[i].Ready, maxStatus, pods[i].Status)
 	}
 	return pods, nil
 }
@@ -138,4 +179,38 @@ func kubectlArgs(context string, args ...string) []string {
 		return args
 	}
 	return append([]string{"--context", context}, args...)
+}
+
+func formatReady(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "<none>" || raw == "-" {
+		return "-"
+	}
+	if strings.Contains(raw, "/") {
+		return raw
+	}
+	parts := strings.Split(raw, ",")
+	total := 0
+	ready := 0
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		total++
+		if strings.EqualFold(p, "true") {
+			ready++
+		} else if strings.EqualFold(p, "false") {
+			continue
+		} else {
+			if _, err := strconv.Atoi(p); err == nil {
+				// If it's already numeric, just return the raw value.
+				return raw
+			}
+		}
+	}
+	if total == 0 {
+		return "-"
+	}
+	return fmt.Sprintf("%d/%d", ready, total)
 }

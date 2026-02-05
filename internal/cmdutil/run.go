@@ -62,36 +62,42 @@ func Run(contextArg, namespace, container, selector, podArg string) error {
 		if err := ensureFzf(); err != nil {
 			return err
 		}
-		choice, err := ChooseWithFzf(pods, header)
+		choice, err := ChooseWithFzf(podDisplays(pods), header)
 		if err != nil {
 			return err
 		}
 		if choice == "" {
 			return fmt.Errorf("no pod selected")
 		}
-		pod = choice
-	} else if contains(pods, podArg) {
+		pod = podNameFromChoice(choice)
+		if pod == "" {
+			return fmt.Errorf("no pod selected")
+		}
+	} else if podExists(pods, podArg) {
 		pod = podArg
 	} else {
-		matches := filterByQuery(pods, podArg)
+		matches := filterPodsByQuery(pods, podArg)
 		if len(matches) == 0 {
 			return fmt.Errorf("no pods match %q", podArg)
 		}
 		if len(matches) == 1 {
-			pod = matches[0]
+			pod = matches[0].Name
 		} else {
 			header := buildPodHeader(context, namespace, selector, "pod: "+podArg)
 			if err := ensureFzf(); err != nil {
 				return err
 			}
-			choice, err := ChooseWithFzf(matches, header)
+			choice, err := ChooseWithFzf(podDisplays(matches), header)
 			if err != nil {
 				return err
 			}
 			if choice == "" {
 				return fmt.Errorf("no pod selected")
 			}
-			pod = choice
+			pod = podNameFromChoice(choice)
+			if pod == "" {
+				return fmt.Errorf("no pod selected")
+			}
 		}
 	}
 
@@ -149,6 +155,45 @@ func filterByQuery(items []string, query string) []string {
 		}
 	}
 	return matches
+}
+
+func filterPodsByQuery(pods []PodItem, query string) []PodItem {
+	var matches []PodItem
+	for _, pod := range pods {
+		if strings.Contains(pod.Name, query) {
+			matches = append(matches, pod)
+		}
+	}
+	return matches
+}
+
+func podExists(pods []PodItem, name string) bool {
+	for _, pod := range pods {
+		if pod.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func podDisplays(pods []PodItem) []string {
+	displays := make([]string, 0, len(pods))
+	for _, pod := range pods {
+		if pod.Display != "" {
+			displays = append(displays, pod.Display)
+			continue
+		}
+		displays = append(displays, pod.Name)
+	}
+	return displays
+}
+
+func podNameFromChoice(choice string) string {
+	fields := strings.Fields(choice)
+	if len(fields) == 0 {
+		return ""
+	}
+	return fields[0]
 }
 
 func buildPodHeader(context, namespace, selector, podQuery string) string {
