@@ -16,8 +16,28 @@ func CurrentContext() (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-func CurrentNamespace() (string, error) {
-	cmd := exec.Command("kubectl", "config", "view", "--minify", "--output", "jsonpath={..namespace}")
+func GetContexts() ([]string, error) {
+	cmd := exec.Command("kubectl", "config", "get-contexts", "-o", "name")
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("kubectl config get-contexts failed: %w", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	var contexts []string
+	for _, l := range lines {
+		l = strings.TrimSpace(l)
+		if l == "" {
+			continue
+		}
+		contexts = append(contexts, l)
+	}
+	return contexts, nil
+}
+
+func CurrentNamespace(context string) (string, error) {
+	args := []string{"config", "view", "--minify", "--output", "jsonpath={..namespace}"}
+	args = kubectlArgs(context, args...)
+	cmd := exec.Command("kubectl", args...)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("kubectl config view failed: %w", err)
@@ -25,7 +45,7 @@ func CurrentNamespace() (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-func GetPods(namespace, selector string) ([]string, error) {
+func GetPods(context, namespace, selector string) ([]string, error) {
 	args := []string{"get", "pods", "-o", "name"}
 	if namespace != "" {
 		args = append(args, "-n", namespace)
@@ -33,6 +53,7 @@ func GetPods(namespace, selector string) ([]string, error) {
 	if selector != "" {
 		args = append(args, "-l", selector)
 	}
+	args = kubectlArgs(context, args...)
 	cmd := exec.Command("kubectl", args...)
 	out, err := cmd.Output()
 	if err != nil {
@@ -50,7 +71,7 @@ func GetPods(namespace, selector string) ([]string, error) {
 	return pods, nil
 }
 
-func GetPodContainers(namespace, pod string) ([]string, string, error) {
+func GetPodContainers(context, namespace, pod string) ([]string, string, error) {
 	args := []string{
 		"get",
 		"pod",
@@ -61,6 +82,7 @@ func GetPodContainers(namespace, pod string) ([]string, string, error) {
 	if namespace != "" {
 		args = append(args, "-n", namespace)
 	}
+	args = kubectlArgs(context, args...)
 	cmd := exec.Command("kubectl", args...)
 	out, err := cmd.Output()
 	if err != nil {
@@ -95,7 +117,7 @@ func GetPodContainers(namespace, pod string) ([]string, string, error) {
 	return containers, defaultContainer, nil
 }
 
-func ExecPod(namespace, pod, container string) error {
+func ExecPod(context, namespace, pod, container string) error {
 	args := []string{"exec", "-it"}
 	if namespace != "" {
 		args = append(args, "-n", namespace)
@@ -105,7 +127,15 @@ func ExecPod(namespace, pod, container string) error {
 		args = append(args, "-c", container)
 	}
 	args = append(args, "--", "sh", "-c", "command -v bash >/dev/null 2>&1 && exec bash || exec sh")
+	args = kubectlArgs(context, args...)
 	cmd := exec.Command("kubectl", args...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	return cmd.Run()
+}
+
+func kubectlArgs(context string, args ...string) []string {
+	if context == "" {
+		return args
+	}
+	return append([]string{"--context", context}, args...)
 }

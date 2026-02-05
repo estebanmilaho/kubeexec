@@ -17,9 +17,11 @@ func main() {
 	var namespace string
 	var container string
 	var selector string
+	var context string
 	var pod string
 	pflag.BoolVar(&showVersion, "version", false, "print version and exit")
 	pflag.BoolVarP(&showHelp, "help", "h", false, "show this message")
+	pflag.StringVar(&context, "context", "", "kubernetes context (overrides current context)")
 	pflag.StringVarP(&namespace, "namespace", "n", "", "kubernetes namespace (defaults to current context/namespace)")
 	pflag.StringVarP(&container, "container", "c", "", "container name (defaults to pod's default)")
 	pflag.StringVarP(&selector, "selector", "l", "", "label selector for pods (e.g. app=api)")
@@ -27,6 +29,7 @@ func main() {
 		fmt.Fprint(os.Stdout, `USAGE:
   kubeexec                          : select a pod and exec into it
   kubeexec <POD>                    : exec into a specific pod (exact or partial)
+  kubeexec --context <CTX>          : use a specific kubernetes context (exact or partial) or trigger context selection
   kubeexec -n, --namespace <NS>     : use a specific namespace
   kubeexec -c, --container <NAME>   : exec into a specific container
   kubeexec -l, --selector <SEL>     : filter pods by label selector
@@ -37,12 +40,12 @@ func main() {
   kubeexec -h, --help               : show this message
 
 NOTES:
-  - A kubectl context has to be set
-  - Uses current kubectl namespace when -n is not provided
+  - A kubectl context must be set unless --context is provided
+  - Uses the context namespace when -n is not provided
   - If the pod has multiple containers and no default, you will be prompted with fzf
   - If a default container exists, it will be used; pass -c to override
   - Selector uses standard kubectl label selector syntax (e.g. app=api,env=prod)
-  - If <POD> matches multiple pods, you will be prompted with fzf
+  - If --context or <POD> matches multiple entries, you will be prompted with fzf
 `)
 	}
 	pflag.Parse()
@@ -66,7 +69,7 @@ NOTES:
 		return
 	}
 
-	if err := cmdutil.Run(namespace, container, selector, pod); err != nil {
+	if err := cmdutil.Run(context, namespace, container, selector, pod); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
