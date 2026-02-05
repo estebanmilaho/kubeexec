@@ -17,7 +17,8 @@ func Run(namespace, container, selector string) error {
 
 	context := ""
 	if namespace == "" {
-		context, err := CurrentContext()
+		var err error
+		context, err = CurrentContext()
 		if err != nil {
 			return err
 		}
