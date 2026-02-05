@@ -1,16 +1,23 @@
 package cmdutil
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
+)
+
+const (
+	kubectlTimeoutDefault = 5 * time.Second
+	kubectlTimeoutPods    = 15 * time.Second
 )
 
 func CurrentContext() (string, error) {
-	cmd := exec.Command("kubectl", "config", "current-context")
-	out, err := cmd.Output()
+	out, err := runKubectl(kubectlTimeoutDefault, "config", "current-context")
 	if err != nil {
 		return "", fmt.Errorf("kubectl config current-context failed: %w", err)
 	}
@@ -18,8 +25,7 @@ func CurrentContext() (string, error) {
 }
 
 func GetContexts() ([]string, error) {
-	cmd := exec.Command("kubectl", "config", "get-contexts", "-o", "name")
-	out, err := cmd.Output()
+	out, err := runKubectl(kubectlTimeoutDefault, "config", "get-contexts", "-o", "name")
 	if err != nil {
 		return nil, fmt.Errorf("kubectl config get-contexts failed: %w", err)
 	}
@@ -45,8 +51,7 @@ type PodItem struct {
 func CurrentNamespace(context string) (string, error) {
 	args := []string{"config", "view", "--minify", "--output", "jsonpath={..namespace}"}
 	args = kubectlArgs(context, args...)
-	cmd := exec.Command("kubectl", args...)
-	out, err := cmd.Output()
+	out, err := runKubectl(kubectlTimeoutDefault, args...)
 	if err != nil {
 		return "", fmt.Errorf("kubectl config view failed: %w", err)
 	}
@@ -62,8 +67,7 @@ func GetPods(context, namespace, selector string) ([]PodItem, error) {
 		args = append(args, "-l", selector)
 	}
 	args = kubectlArgs(context, args...)
-	cmd := exec.Command("kubectl", args...)
-	out, err := cmd.Output()
+	out, err := runKubectl(kubectlTimeoutPods, args...)
 	if err != nil {
 		return nil, fmt.Errorf("kubectl get pods failed: %w", err)
 	}
@@ -124,8 +128,7 @@ func GetPodContainers(context, namespace, pod string) ([]string, string, error) 
 		args = append(args, "-n", namespace)
 	}
 	args = kubectlArgs(context, args...)
-	cmd := exec.Command("kubectl", args...)
-	out, err := cmd.Output()
+	out, err := runKubectl(kubectlTimeoutDefault, args...)
 	if err != nil {
 		return nil, "", fmt.Errorf("kubectl get pod failed: %w", err)
 	}
@@ -170,6 +173,24 @@ func kubectlArgs(context string, args ...string) []string {
 		return args
 	}
 	return append([]string{"--context", context}, args...)
+}
+
+func runKubectl(timeout time.Duration, args ...string) ([]byte, error) {
+	if timeout <= 0 {
+		cmd := exec.Command("kubectl", args...)
+		return cmd.Output()
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "kubectl", args...)
+	out, err := cmd.Output()
+	if err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return nil, fmt.Errorf("kubectl timed out after %s", timeout)
+		}
+		return nil, err
+	}
+	return out, nil
 }
 
 func ExecArgs(context, namespace, pod, container string) []string {
