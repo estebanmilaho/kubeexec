@@ -159,16 +159,7 @@ func GetPodContainers(context, namespace, pod string) ([]string, string, error) 
 }
 
 func ExecPod(context, namespace, pod, container string) error {
-	args := []string{"exec", "-it"}
-	if namespace != "" {
-		args = append(args, "-n", namespace)
-	}
-	args = append(args, pod)
-	if container != "" {
-		args = append(args, "-c", container)
-	}
-	args = append(args, "--", "sh", "-c", "command -v bash >/dev/null 2>&1 && exec bash || exec sh")
-	args = kubectlArgs(context, args...)
+	args := ExecArgs(context, namespace, pod, container)
 	cmd := exec.Command("kubectl", args...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	return cmd.Run()
@@ -179,6 +170,19 @@ func kubectlArgs(context string, args ...string) []string {
 		return args
 	}
 	return append([]string{"--context", context}, args...)
+}
+
+func ExecArgs(context, namespace, pod, container string) []string {
+	args := []string{"exec", "-it"}
+	if namespace != "" {
+		args = append(args, "-n", namespace)
+	}
+	args = append(args, pod)
+	if container != "" {
+		args = append(args, "-c", container)
+	}
+	args = append(args, "--", "sh", "-c", "command -v bash >/dev/null 2>&1 && exec bash || exec sh")
+	return kubectlArgs(context, args...)
 }
 
 func formatReady(raw string) string {

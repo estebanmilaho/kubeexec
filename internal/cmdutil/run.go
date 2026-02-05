@@ -7,13 +7,13 @@ import (
 	"strings"
 )
 
-func Run(contextArg, namespace, container, selector, podArg string) error {
+func Run(contextArg, namespace, container, selector, podArg string, dryRun bool, contextRequested bool) error {
 	if _, err := exec.LookPath("kubectl"); err != nil {
 		return fmt.Errorf("kubectl not found")
 	}
 
 	context := contextArg
-	if contextArg != "" {
+	if contextRequested {
 		resolved, err := resolveContext(contextArg)
 		if err != nil {
 			return err
@@ -113,15 +113,15 @@ func Run(contextArg, namespace, container, selector, podArg string) error {
 		if !contains(containers, container) {
 			return fmt.Errorf("container %q not found in pod %q (available: %s)", container, pod, strings.Join(containers, ", "))
 		}
-		return ExecPod(context, namespace, pod, container)
+		return execOrPrint(context, namespace, pod, container, dryRun)
 	}
 
 	if len(containers) == 1 {
-		return ExecPod(context, namespace, pod, containers[0])
+		return execOrPrint(context, namespace, pod, containers[0], dryRun)
 	}
 	if defaultContainer != "" {
 		fmt.Fprintf(os.Stderr, "note: pod has multiple containers (%s); using default %q. Use -c to select another.\n", strings.Join(containers, ", "), defaultContainer)
-		return ExecPod(context, namespace, pod, defaultContainer)
+		return execOrPrint(context, namespace, pod, defaultContainer, dryRun)
 	}
 
 	if err := ensureFzf(); err != nil {
@@ -135,7 +135,7 @@ func Run(contextArg, namespace, container, selector, podArg string) error {
 		return fmt.Errorf("no container selected")
 	}
 
-	return ExecPod(context, namespace, pod, containerChoice)
+	return execOrPrint(context, namespace, pod, containerChoice, dryRun)
 }
 
 func contains(items []string, item string) bool {
@@ -221,6 +221,19 @@ func resolveContext(query string) (string, error) {
 	if len(contexts) == 0 {
 		return "", fmt.Errorf("no kubernetes contexts found")
 	}
+	if query == "" {
+		if err := ensureFzf(); err != nil {
+			return "", err
+		}
+		choice, err := ChooseWithFzf(contexts, "select context")
+		if err != nil {
+			return "", err
+		}
+		if choice == "" {
+			return "", fmt.Errorf("no context selected")
+		}
+		return choice, nil
+	}
 	if contains(contexts, query) {
 		return query, nil
 	}
@@ -249,4 +262,13 @@ func ensureFzf() error {
 		return fmt.Errorf("fzf not found")
 	}
 	return nil
+}
+
+func execOrPrint(context, namespace, pod, container string, dryRun bool) error {
+	if dryRun {
+		args := ExecArgs(context, namespace, pod, container)
+		fmt.Fprintln(os.Stdout, "kubectl "+strings.Join(args, " "))
+		return nil
+	}
+	return ExecPod(context, namespace, pod, container)
 }

@@ -18,21 +18,28 @@ func main() {
 	var container string
 	var selector string
 	var context string
+	var dryRun bool
 	var pod string
 	pflag.BoolVar(&showVersion, "version", false, "print version and exit")
 	pflag.BoolVarP(&showHelp, "help", "h", false, "show this message")
 	pflag.StringVar(&context, "context", "", "kubernetes context (overrides current context)")
+	if f := pflag.Lookup("context"); f != nil {
+		f.NoOptDefVal = ""
+	}
 	pflag.StringVarP(&namespace, "namespace", "n", "", "kubernetes namespace (defaults to current context/namespace)")
 	pflag.StringVarP(&container, "container", "c", "", "container name (defaults to pod's default)")
 	pflag.StringVarP(&selector, "selector", "l", "", "label selector for pods (e.g. app=api)")
+	pflag.BoolVar(&dryRun, "dry-run", false, "print kubectl command without executing")
 	pflag.Usage = func() {
 		fmt.Fprint(os.Stdout, `USAGE:
   kubeexec                          : select a pod and exec into it
   kubeexec <POD>                    : exec into a specific pod (exact or partial)
-  kubeexec --context <CTX>          : use a specific kubernetes context (exact or partial) or trigger context selection
+  kubeexec --context <CTX>          : use a specific kubernetes context (exact or partial)
+  kubeexec --context                : select a context from a list
   kubeexec -n, --namespace <NS>     : use a specific namespace
   kubeexec -c, --container <NAME>   : exec into a specific container
   kubeexec -l, --selector <SEL>     : filter pods by label selector
+  kubeexec --dry-run                : print the kubectl exec command and exit
   kubeexec <POD> -c <NAME>          : exec into a specific container in a pod
   kubeexec -n <NS> -c <NAME>        : specify both namespace and container
   kubeexec -n <NS> -l <SEL>         : specify both namespace and selector
@@ -49,6 +56,10 @@ NOTES:
 `)
 	}
 	pflag.Parse()
+	contextRequested := false
+	if f := pflag.Lookup("context"); f != nil && f.Changed {
+		contextRequested = true
+	}
 	args := pflag.Args()
 	if len(args) > 1 {
 		fmt.Fprintln(os.Stderr, "error: too many arguments")
@@ -69,7 +80,7 @@ NOTES:
 		return
 	}
 
-	if err := cmdutil.Run(context, namespace, container, selector, pod); err != nil {
+	if err := cmdutil.Run(context, namespace, container, selector, pod, dryRun, contextRequested); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
