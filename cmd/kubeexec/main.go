@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -56,8 +57,10 @@ NOTES:
   - If --context or <POD> matches multiple entries, you will be prompted with fzf
 `)
 	}
+	pflag.CommandLine.SetOutput(io.Discard)
 	if err := pflag.CommandLine.Parse(normalizeContextArgs(os.Args[1:])); err != nil {
 		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr)
 		pflag.Usage()
 		os.Exit(2)
 	}
