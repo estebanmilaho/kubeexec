@@ -22,7 +22,7 @@ func main() {
 	var context string
 	var dryRun bool
 	var pod string
-	pflag.BoolVar(&showVersion, "version", false, "print version and exit")
+	pflag.BoolVarP(&showVersion, "version", "v", false, "print version and exit")
 	pflag.BoolVarP(&showHelp, "help", "h", false, "show this message")
 	pflag.StringVar(&context, "context", "", "kubernetes context (overrides current context)")
 	if f := pflag.Lookup("context"); f != nil {
@@ -45,7 +45,7 @@ func main() {
   kubeexec <POD> -c <NAME>          : exec into a specific container in a pod
   kubeexec -n <NS> -c <NAME>        : specify both namespace and container
   kubeexec -n <NS> -l <SEL>         : specify both namespace and selector
-  kubeexec -version                 : print version and exit
+  kubeexec version, -v, --version   : print version and exit
   kubeexec -h, --help               : show this message
 
 NOTES:
@@ -58,6 +58,12 @@ NOTES:
 `)
 	}
 	pflag.CommandLine.SetOutput(io.Discard)
+	if err := rejectDeprecatedArgs(os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr)
+		pflag.Usage()
+		os.Exit(2)
+	}
 	if err := pflag.CommandLine.Parse(normalizeContextArgs(os.Args[1:])); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Fprintln(os.Stderr)
@@ -69,6 +75,10 @@ NOTES:
 		contextRequested = true
 	}
 	args := pflag.Args()
+	if len(args) > 0 && args[0] == "version" {
+		fmt.Println(version)
+		return
+	}
 	if len(args) > 1 {
 		fmt.Fprintln(os.Stderr, "error: too many arguments")
 		pflag.Usage()
@@ -111,4 +121,13 @@ func normalizeContextArgs(args []string) []string {
 		normalized = append(normalized, arg)
 	}
 	return normalized
+}
+
+func rejectDeprecatedArgs(args []string) error {
+	for _, arg := range args {
+		if arg == "-version" {
+			return fmt.Errorf("unknown flag: -version (use -v or --version)")
+		}
+	}
+	return nil
 }

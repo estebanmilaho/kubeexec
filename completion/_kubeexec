@@ -2,7 +2,7 @@
 
 _arguments \
   '(-h --help)'{-h,--help}'[show this message]' \
-  '--version[print version and exit]' \
+  '(-v --version)'{-v,--version}'[print version and exit]' \
   '(-n --namespace)'{-n,--namespace}'[kubernetes namespace]:namespace:' \
   '(-c --container)'{-c,--container}'[container name]:container:' \
   '(-l --selector)'{-l,--selector}'[label selector for pods]:selector:' \

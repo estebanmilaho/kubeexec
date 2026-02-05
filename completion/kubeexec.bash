@@ -9,7 +9,7 @@ _kubeexec() {
 			;;
 	esac
 
-	local flags="--context --namespace --container --selector --dry-run --version --help -n -c -l -h"
+	local flags="--context --namespace --container --selector --dry-run --version --help -n -c -l -h -v"
 	COMPREPLY=($(compgen -W "${flags}" -- "$cur"))
 }
 
