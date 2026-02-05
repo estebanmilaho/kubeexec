@@ -17,6 +17,7 @@ func main() {
 	var namespace string
 	var container string
 	var selector string
+	var pod string
 	pflag.BoolVar(&showVersion, "version", false, "print version and exit")
 	pflag.BoolVarP(&showHelp, "help", "h", false, "show this message")
 	pflag.StringVarP(&namespace, "namespace", "n", "", "kubernetes namespace (defaults to current context/namespace)")
@@ -25,9 +26,11 @@ func main() {
 	pflag.Usage = func() {
 		fmt.Fprint(os.Stdout, `USAGE:
   kubeexec                          : select a pod and exec into it
+  kubeexec <POD>                    : exec into a specific pod (exact or partial)
   kubeexec -n, --namespace <NS>     : use a specific namespace
   kubeexec -c, --container <NAME>   : exec into a specific container
   kubeexec -l, --selector <SEL>     : filter pods by label selector
+  kubeexec <POD> -c <NAME>          : exec into a specific container in a pod
   kubeexec -n <NS> -c <NAME>        : specify both namespace and container
   kubeexec -n <NS> -l <SEL>         : specify both namespace and selector
   kubeexec -version                 : print version and exit
@@ -39,9 +42,19 @@ NOTES:
   - If the pod has multiple containers and no default, you will be prompted with fzf
   - If a default container exists, it will be used; pass -c to override
   - Selector uses standard kubectl label selector syntax (e.g. app=api,env=prod)
+  - If <POD> matches multiple pods, you will be prompted with fzf
 `)
 	}
 	pflag.Parse()
+	args := pflag.Args()
+	if len(args) > 1 {
+		fmt.Fprintln(os.Stderr, "error: too many arguments")
+		pflag.Usage()
+		os.Exit(2)
+	}
+	if len(args) == 1 {
+		pod = args[0]
+	}
 
 	if showHelp {
 		pflag.Usage()
@@ -53,7 +66,7 @@ NOTES:
 		return
 	}
 
-	if err := cmdutil.Run(namespace, container, selector); err != nil {
+	if err := cmdutil.Run(namespace, container, selector, pod); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
