@@ -10,6 +10,10 @@ builds:
 
 archives:
   - format: tar.gz
+    files:
+      - completion/kubeexec.bash
+      - completion/_kubeexec
+      - completion/kubeexec.fish
 
 release:
   github:
@@ -27,5 +31,8 @@ brews:
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     install: |
       bin.install "kubeexec"
+      bash_completion.install "completion/kubeexec.bash" => "kubeexec"
+      zsh_completion.install "completion/_kubeexec"
+      fish_completion.install "completion/kubeexec.fish"
     test: |
       system "#{bin}/kubeexec", "-version"

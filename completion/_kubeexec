@@ -1,2 +1,12 @@
 #compdef kubeexec
+
+_arguments \
+  '(-h --help)'{-h,--help}'[show this message]' \
+  '--version[print version and exit]' \
+  '(-n --namespace)'{-n,--namespace}'[kubernetes namespace]:namespace:' \
+  '(-c --container)'{-c,--container}'[container name]:container:' \
+  '(-l --selector)'{-l,--selector}'[label selector for pods]:selector:' \
+  '--context[kubernetes context (overrides current context)]:context:' \
+  '--dry-run[print the kubectl exec command and exit]' \
+  '*:pod:'
 _arguments '*: :->args'
