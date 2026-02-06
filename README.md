@@ -93,3 +93,6 @@ Values accepted for env and flags: `true`, `True`, `1`, `on`, `ON`, `false`, `Fa
 kubeexec --version
 kubeexec version
 ```
+
+## License
+Apache License 2.0. See `LICENSE`.
