@@ -40,12 +40,16 @@ kubeexec <POD> -c <NAME>
 kubeexec -n <NS> -l <SEL>
 kubeexec -- <CMD> [ARGS]
 kubeexec <POD> -- <CMD> [ARGS]
+kubeexec -- <CMD> [ARGS]
 ```
 
 ## Examples
 ```bash
 # Select a pod from the current namespace and exec into it
 kubeexec
+
+# Select a pod from the current namespace and run a custom command on it
+kubeexec -- ls -ltra
 
 # Run a command in a specific pod
 kubeexec app-123 -- ls -la /var/log
