@@ -9,49 +9,111 @@ import (
 	"strings"
 )
 
-const confirmContextEnvVar = "KUBEEXEC_CONFIRM_CONTEXT"
+const (
+	confirmContextEnvVar  = "KUBEEXEC_CONFIRM_CONTEXT"
+	nonInteractiveEnvVar  = "KUBEEXEC_NON_INTERACTIVE"
+	confirmBoolValueHint  = "true/True/1/on/ON/false/False/0/off/OFF"
+	confirmConfigFilename = ".config/kubeexec"
+)
 
 var confirmContextKeywords = []string{"prod", "production", "live"}
 
 func ResolveConfirmContext(flagSet bool, flagValue bool) (bool, error) {
+	return resolveBoolSetting(flagSet, flagValue, confirmContextEnvVar, "confirm-context")
+}
+
+func ResolveNonInteractive(flagSet bool, flagValue bool) (bool, error) {
+	return resolveBoolSetting(flagSet, flagValue, nonInteractiveEnvVar, "non-interactive")
+}
+
+func resolveBoolSetting(flagSet bool, flagValue bool, envVar string, configKey string) (bool, error) {
 	if flagSet {
 		return flagValue, nil
 	}
-	if val, ok := os.LookupEnv(confirmContextEnvVar); ok {
+	if val, ok := os.LookupEnv(envVar); ok {
 		parsed, ok := parseConfirmBool(val)
 		if !ok {
-			return false, fmt.Errorf("invalid %s value %q (use true/True/1/false/False/0)", confirmContextEnvVar, val)
+			return false, fmt.Errorf("invalid %s value %q (use %s)", envVar, val, confirmBoolValueHint)
 		}
 		return parsed, nil
 	}
-	path, err := confirmContextConfigPath()
+	settings, err := loadConfigSettings()
 	if err != nil {
 		return false, err
+	}
+	if configKey == "confirm-context" && settings.confirmContext != nil {
+		return *settings.confirmContext, nil
+	}
+	if configKey == "non-interactive" && settings.nonInteractive != nil {
+		return *settings.nonInteractive, nil
+	}
+	return false, nil
+}
+
+type configSettings struct {
+	confirmContext *bool
+	nonInteractive *bool
+}
+
+func loadConfigSettings() (configSettings, error) {
+	var settings configSettings
+	path, err := kubeexecConfigPath()
+	if err != nil {
+		return settings, err
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return false, nil
+			return settings, nil
 		}
-		return false, fmt.Errorf("read config %s: %w", path, err)
+		return settings, fmt.Errorf("read config %s: %w", path, err)
 	}
-	value := strings.TrimSpace(string(data))
-	if value == "" {
-		return false, fmt.Errorf("config %s is empty (use true/True/1/false/False/0)", path)
+	content := strings.TrimSpace(string(data))
+	if content == "" {
+		return settings, fmt.Errorf("config %s is empty (use key=value lines with %s)", path, confirmBoolValueHint)
 	}
-	parsed, ok := parseConfirmBool(value)
-	if !ok {
-		return false, fmt.Errorf("invalid value in %s: %q (use true/True/1/false/False/0)", path, value)
+	scanner := bufio.NewScanner(strings.NewReader(content))
+	lineNo := 0
+	for scanner.Scan() {
+		lineNo++
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			return settings, fmt.Errorf("invalid config %s:%d (expected key=value)", path, lineNo)
+		}
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if key == "" || value == "" {
+			return settings, fmt.Errorf("invalid config %s:%d (expected key=value)", path, lineNo)
+		}
+		parsed, ok := parseConfirmBool(value)
+		if !ok {
+			return settings, fmt.Errorf("invalid value for %s in %s:%d: %q (use %s)", key, path, lineNo, value, confirmBoolValueHint)
+		}
+		switch key {
+		case "confirm-context":
+			settings.confirmContext = &parsed
+		case "non-interactive":
+			settings.nonInteractive = &parsed
+		default:
+			return settings, fmt.Errorf("unknown key %q in %s:%d", key, path, lineNo)
+		}
 	}
-	return parsed, nil
+	if err := scanner.Err(); err != nil {
+		return settings, fmt.Errorf("read config %s: %w", path, err)
+	}
+	return settings, nil
 }
 
-func confirmContextConfigPath() (string, error) {
+func kubeexecConfigPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("resolve home dir: %w", err)
 	}
-	return filepath.Join(home, ".config", "kubeexec"), nil
+	return filepath.Join(home, confirmConfigFilename), nil
 }
 
 func parseConfirmBool(value string) (bool, bool) {

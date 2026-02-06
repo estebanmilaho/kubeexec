@@ -35,43 +35,45 @@ func main() {
 	pflag.StringVarP(&selector, "selector", "l", "", "label selector for pods (e.g. app=api)")
 	pflag.BoolVar(&dryRun, "dry-run", false, "print kubectl command without executing")
 	pflag.BoolVar(&confirmContext, "confirm-context", false, "confirm when context/namespace looks like prod (env: KUBEEXEC_CONFIRM_CONTEXT, config: ~/.config/kubeexec)")
-	pflag.BoolVar(&nonInteractive, "non-interactive", false, "run without stdin or TTY (no -i/-t), useful for scripts")
+	pflag.BoolVar(&nonInteractive, "non-interactive", false, "run without stdin or TTY (no -i/-t), useful for scripts (env: KUBEEXEC_NON_INTERACTIVE, config: ~/.config/kubeexec)")
 	pflag.Usage = func() {
-		fmt.Fprint(os.Stdout, `USAGE:
-  kubeexec                          		: select a pod and exec into it
-  kubeexec <POD>                    		: exec into a specific pod (exact or partial)
-  kubeexec --context <CTX>          		: use a specific kubernetes context (exact or partial)
-  kubeexec --context                		: select a context from a list
-  kubeexec -n, --namespace <NS>     		: use a specific namespace
-  kubeexec -c, --container <NAME>   		: exec into a specific container
-  kubeexec -l, --selector <SEL>     		: filter pods by label selector
-  kubeexec --dry-run                		: print the kubectl exec command and exit
-  kubeexec --non-interactive[=true|false]   : run without stdin or TTY (no -i/-t)
-  kubeexec --confirm-context[=true|false] 	: confirm when context/namespace looks like prod
-  kubeexec <POD> -c <NAME>          		: exec into a specific container in a pod
-  kubeexec -n <NS> -c <NAME>        		: specify both namespace and container
-  kubeexec -n <NS> -l <SEL>         		: specify both namespace and selector
-  kubeexec version, -v, --version   		: print version and exit
-  kubeexec -h, --help               		: show this message
-
-NOTES:
-  - A kubectl context must be set unless --context is provided
-  - Uses the context namespace when -n is not provided
-  - If the pod has multiple containers and no default, you will be prompted with fzf
-  - If a default container exists, it will be used; pass -c to override
-  - Selector uses standard kubectl label selector syntax (e.g. app=api,env=prod)
-  - If --context or <POD> matches multiple entries, you will be prompted with fzf
-  - Confirm context can be configured via --confirm-context, KUBEEXEC_CONFIRM_CONTEXT, or ~/.config/kubeexec (true/True/1/false/False/0)
-`)
+		fmt.Fprintln(os.Stdout, "USAGE:")
+		fmt.Fprintln(os.Stdout, "  kubeexec                          : select a pod and exec into it")
+		fmt.Fprintln(os.Stdout, "  kubeexec <POD>                    : exec into a specific pod (exact or partial)")
+		fmt.Fprintln(os.Stdout, "  kubeexec --context <CTX>          : use a specific kubernetes context (exact or partial)")
+		fmt.Fprintln(os.Stdout, "  kubeexec --context                : select a context from a list")
+		fmt.Fprintln(os.Stdout, "  kubeexec <POD> -- <CMD> [ARGS]     : run a command in a specific pod")
+		fmt.Fprintln(os.Stdout, "  kubeexec -- <CMD> [ARGS]           : select a pod, then run a command")
+		fmt.Fprintln(os.Stdout, "  kubeexec <POD> -c <NAME>          : exec into a specific container in a pod")
+		fmt.Fprintln(os.Stdout, "  kubeexec -n <NS> -c <NAME>        : specify both namespace and container")
+		fmt.Fprintln(os.Stdout, "  kubeexec -n <NS> -l <SEL>         : specify both namespace and selector")
+		fmt.Fprintln(os.Stdout, "  kubeexec version, -v, --version   : print version and exit")
+		fmt.Fprintln(os.Stdout, "  kubeexec -h, --help               : show this message")
+		fmt.Fprintln(os.Stdout, "")
+		fmt.Fprintln(os.Stdout, "OPTIONS:")
+		pflag.CommandLine.SetOutput(os.Stdout)
+		pflag.CommandLine.PrintDefaults()
+		fmt.Fprintln(os.Stdout, "")
+		fmt.Fprintln(os.Stdout, "NOTES:")
+		fmt.Fprintln(os.Stdout, "  - A kubectl context must be set unless --context is provided")
+		fmt.Fprintln(os.Stdout, "  - Uses the context namespace when -n is not provided")
+		fmt.Fprintln(os.Stdout, "  - If the pod has multiple containers and no default, you will be prompted with fzf")
+		fmt.Fprintln(os.Stdout, "  - If a default container exists, it will be used; pass -c to override")
+		fmt.Fprintln(os.Stdout, "  - Selector uses standard kubectl label selector syntax (e.g. app=api,env=prod)")
+		fmt.Fprintln(os.Stdout, "  - If --context or <POD> matches multiple entries, you will be prompted with fzf")
+		fmt.Fprintln(os.Stdout, "  - Confirm context can be configured via --confirm-context, KUBEEXEC_CONFIRM_CONTEXT, or ~/.config/kubeexec (true/True/1/on/ON/false/False/0/off/OFF)")
+		fmt.Fprintln(os.Stdout, "  - Non-interactive can be configured via --non-interactive, KUBEEXEC_NON_INTERACTIVE, or ~/.config/kubeexec")
+		fmt.Fprintln(os.Stdout, "  - Config file uses key=value lines (confirm-context, non-interactive)")
 	}
 	pflag.CommandLine.SetOutput(io.Discard)
-	if err := rejectDeprecatedArgs(os.Args[1:]); err != nil {
+	flagArgs, commandArgs := splitCommandArgs(os.Args[1:])
+	if err := rejectDeprecatedArgs(flagArgs); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Fprintln(os.Stderr)
 		pflag.Usage()
 		os.Exit(2)
 	}
-	if err := pflag.CommandLine.Parse(normalizeContextArgs(os.Args[1:])); err != nil {
+	if err := pflag.CommandLine.Parse(normalizeContextArgs(flagArgs)); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Fprintln(os.Stderr)
 		pflag.Usage()
@@ -86,6 +88,15 @@ NOTES:
 		confirmContextRequested = true
 	}
 	confirmContextEnabled, err := cmdutil.ResolveConfirmContext(confirmContextRequested, confirmContext)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(2)
+	}
+	nonInteractiveRequested := false
+	if f := pflag.Lookup("non-interactive"); f != nil && f.Changed {
+		nonInteractiveRequested = true
+	}
+	nonInteractiveEnabled, err := cmdutil.ResolveNonInteractive(nonInteractiveRequested, nonInteractive)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(2)
@@ -114,7 +125,7 @@ NOTES:
 		return
 	}
 
-	if err := cmdutil.Run(context, namespace, container, selector, pod, dryRun, contextRequested, confirmContextEnabled, nonInteractive); err != nil {
+	if err := cmdutil.Run(context, namespace, container, selector, pod, commandArgs, dryRun, contextRequested, confirmContextEnabled, nonInteractiveEnabled); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
@@ -146,4 +157,13 @@ func rejectDeprecatedArgs(args []string) error {
 		}
 	}
 	return nil
+}
+
+func splitCommandArgs(args []string) (flags []string, command []string) {
+	for i, arg := range args {
+		if arg == "--" {
+			return append([]string(nil), args[:i]...), append([]string(nil), args[i+1:]...)
+		}
+	}
+	return append([]string(nil), args...), nil
 }

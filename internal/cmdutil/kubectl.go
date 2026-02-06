@@ -162,8 +162,8 @@ func GetPodContainers(context, namespace, pod string) ([]string, string, error) 
 	return containers, defaultContainer, nil
 }
 
-func ExecPod(context, namespace, pod, container string, nonInteractive bool) error {
-	args := ExecArgs(context, namespace, pod, container, nonInteractive)
+func ExecPod(context, namespace, pod, container string, command []string, nonInteractive bool) error {
+	args := ExecArgs(context, namespace, pod, container, command, nonInteractive)
 	cmd := exec.Command("kubectl", args...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	return cmd.Run()
@@ -206,7 +206,7 @@ func runKubectl(timeout time.Duration, args ...string) ([]byte, error) {
 	return stdout.Bytes(), nil
 }
 
-func ExecArgs(context, namespace, pod, container string, nonInteractive bool) []string {
+func ExecArgs(context, namespace, pod, container string, command []string, nonInteractive bool) []string {
 	args := []string{"exec"}
 	if !nonInteractive {
 		args = append(args, "-i")
@@ -221,7 +221,12 @@ func ExecArgs(context, namespace, pod, container string, nonInteractive bool) []
 	if container != "" {
 		args = append(args, "-c", container)
 	}
-	args = append(args, "--", "sh", "-c", "command -v bash >/dev/null 2>&1 && exec bash || exec sh")
+	if len(command) > 0 {
+		args = append(args, "--")
+		args = append(args, command...)
+	} else {
+		args = append(args, "--", "sh", "-c", "command -v bash >/dev/null 2>&1 && exec bash || exec sh")
+	}
 	return kubectlArgs(context, args...)
 }
 
