@@ -31,9 +31,11 @@ func Run(contextArg, namespace, container, selector, podArg string, dryRun bool,
 				return fmt.Errorf("no kubernetes context is set")
 			}
 		} else {
-			if ctx, err := CurrentContext(); err == nil {
-				context = ctx
+			ctx, err := CurrentContext()
+			if err != nil {
+				return err
 			}
+			context = ctx
 		}
 	}
 

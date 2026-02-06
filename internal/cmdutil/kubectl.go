@@ -207,7 +207,10 @@ func runKubectl(timeout time.Duration, args ...string) ([]byte, error) {
 }
 
 func ExecArgs(context, namespace, pod, container string) []string {
-	args := []string{"exec", "-it"}
+	args := []string{"exec", "-i"}
+	if isTerminal(os.Stdin) && isTerminal(os.Stdout) {
+		args = append(args, "-t")
+	}
 	if namespace != "" {
 		args = append(args, "-n", namespace)
 	}
@@ -217,6 +220,14 @@ func ExecArgs(context, namespace, pod, container string) []string {
 	}
 	args = append(args, "--", "sh", "-c", "command -v bash >/dev/null 2>&1 && exec bash || exec sh")
 	return kubectlArgs(context, args...)
+}
+
+func isTerminal(f *os.File) bool {
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return (info.Mode() & os.ModeCharDevice) != 0
 }
 
 func formatReady(raw string) string {
