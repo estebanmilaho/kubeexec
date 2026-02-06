@@ -98,7 +98,7 @@ func GetPods(context, namespace, selector string) ([]PodItem, error) {
 		ready := formatReady(readyRaw)
 		pods = append(pods, PodItem{
 			Name:   name,
-			Ready: ready,
+			Ready:  ready,
 			Status: status,
 		})
 		if len(name) > maxName {
@@ -162,8 +162,8 @@ func GetPodContainers(context, namespace, pod string) ([]string, string, error) 
 	return containers, defaultContainer, nil
 }
 
-func ExecPod(context, namespace, pod, container string) error {
-	args := ExecArgs(context, namespace, pod, container)
+func ExecPod(context, namespace, pod, container string, nonInteractive bool) error {
+	args := ExecArgs(context, namespace, pod, container, nonInteractive)
 	cmd := exec.Command("kubectl", args...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	return cmd.Run()
@@ -206,10 +206,13 @@ func runKubectl(timeout time.Duration, args ...string) ([]byte, error) {
 	return stdout.Bytes(), nil
 }
 
-func ExecArgs(context, namespace, pod, container string) []string {
-	args := []string{"exec", "-i"}
-	if isTerminal(os.Stdin) && isTerminal(os.Stdout) {
-		args = append(args, "-t")
+func ExecArgs(context, namespace, pod, container string, nonInteractive bool) []string {
+	args := []string{"exec"}
+	if !nonInteractive {
+		args = append(args, "-i")
+		if isTerminal(os.Stdin) && isTerminal(os.Stdout) {
+			args = append(args, "-t")
+		}
 	}
 	if namespace != "" {
 		args = append(args, "-n", namespace)

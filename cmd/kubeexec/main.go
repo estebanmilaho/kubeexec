@@ -23,6 +23,7 @@ func main() {
 	var dryRun bool
 	var pod string
 	var confirmContext bool
+	var nonInteractive bool
 	pflag.BoolVarP(&showVersion, "version", "v", false, "print version and exit")
 	pflag.BoolVarP(&showHelp, "help", "h", false, "show this message")
 	pflag.StringVar(&context, "context", "", "kubernetes context (overrides current context)")
@@ -34,22 +35,24 @@ func main() {
 	pflag.StringVarP(&selector, "selector", "l", "", "label selector for pods (e.g. app=api)")
 	pflag.BoolVar(&dryRun, "dry-run", false, "print kubectl command without executing")
 	pflag.BoolVar(&confirmContext, "confirm-context", false, "confirm when context/namespace looks like prod (env: KUBEEXEC_CONFIRM_CONTEXT, config: ~/.config/kubeexec)")
+	pflag.BoolVar(&nonInteractive, "non-interactive", false, "run without stdin or TTY (no -i/-t), useful for scripts")
 	pflag.Usage = func() {
 		fmt.Fprint(os.Stdout, `USAGE:
-  kubeexec                          : select a pod and exec into it
-  kubeexec <POD>                    : exec into a specific pod (exact or partial)
-  kubeexec --context <CTX>          : use a specific kubernetes context (exact or partial)
-  kubeexec --context                : select a context from a list
-  kubeexec -n, --namespace <NS>     : use a specific namespace
-  kubeexec -c, --container <NAME>   : exec into a specific container
-  kubeexec -l, --selector <SEL>     : filter pods by label selector
-  kubeexec --dry-run                : print the kubectl exec command and exit
-  kubeexec --confirm-context[=true|false] : confirm when context/namespace looks like prod
-  kubeexec <POD> -c <NAME>          : exec into a specific container in a pod
-  kubeexec -n <NS> -c <NAME>        : specify both namespace and container
-  kubeexec -n <NS> -l <SEL>         : specify both namespace and selector
-  kubeexec version, -v, --version   : print version and exit
-  kubeexec -h, --help               : show this message
+  kubeexec                          		: select a pod and exec into it
+  kubeexec <POD>                    		: exec into a specific pod (exact or partial)
+  kubeexec --context <CTX>          		: use a specific kubernetes context (exact or partial)
+  kubeexec --context                		: select a context from a list
+  kubeexec -n, --namespace <NS>     		: use a specific namespace
+  kubeexec -c, --container <NAME>   		: exec into a specific container
+  kubeexec -l, --selector <SEL>     		: filter pods by label selector
+  kubeexec --dry-run                		: print the kubectl exec command and exit
+  kubeexec --non-interactive[=true|false]   : run without stdin or TTY (no -i/-t)
+  kubeexec --confirm-context[=true|false] 	: confirm when context/namespace looks like prod
+  kubeexec <POD> -c <NAME>          		: exec into a specific container in a pod
+  kubeexec -n <NS> -c <NAME>        		: specify both namespace and container
+  kubeexec -n <NS> -l <SEL>         		: specify both namespace and selector
+  kubeexec version, -v, --version   		: print version and exit
+  kubeexec -h, --help               		: show this message
 
 NOTES:
   - A kubectl context must be set unless --context is provided
@@ -111,7 +114,7 @@ NOTES:
 		return
 	}
 
-	if err := cmdutil.Run(context, namespace, container, selector, pod, dryRun, contextRequested, confirmContextEnabled); err != nil {
+	if err := cmdutil.Run(context, namespace, container, selector, pod, dryRun, contextRequested, confirmContextEnabled, nonInteractive); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
