@@ -2,17 +2,16 @@
 
 Fast `kubectl exec` with fuzzy pod selection.
 
-kubeexec assumes your **context and namespace are already set**, and focuses on fast pod/container selection with safe defaults for interactive shell access.
-
-> [!IMPORTANT]
-> Keep `fzf` installed and enabled. kubeexec relies on it for interactive selection when a pod, context, or container is ambiguous. It will run without `fzf`, but selection features are limited and may fail fast when a choice is required.
-
-
-**Workflow companion:** [kubectx/kubens](https://github.com/ahmetb/kubectx) for fast context and namespace switching.
+kubeexec pairs naturally with kubectx and kubens: **kubectx** switches Kubernetes contexts (clusters) faster, and **kubens** switches namespaces (and configures them for kubectl) easily.
 
 ## Requirements
 - `kubectl`
 - `fzf` (recommended)
+
+> [!IMPORTANT]
+> Keep `fzf` installed and enabled. kubeexec relies on it for interactive selection when a pod, context, or container is ambiguous. It will run without `fzf`, but selection features are limited and may fail fast when a choice is required.
+
+**Workflow companion:** [kubectx/kubens](https://github.com/ahmetb/kubectx) for fast context and namespace switching.
 
 ## Installation
 
@@ -60,6 +59,7 @@ kubeexec --non-interactive app-123 -- cat /etc/os-release
 
 ## Behavior
 - Uses the current context/namespace by default.
+- You can override context and namespace with `--context` and `--namespace`.
 - If multiple pods match and `fzf` is enabled, you will be prompted to choose.
 - If the pod has multiple containers and no default, you will be prompted to choose.
 - `--` passes a command directly to `kubectl exec` instead of starting a shell.
