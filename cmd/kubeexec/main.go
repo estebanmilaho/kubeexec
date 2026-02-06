@@ -34,8 +34,8 @@ func main() {
 	pflag.StringVarP(&container, "container", "c", "", "container name (defaults to pod's default)")
 	pflag.StringVarP(&selector, "selector", "l", "", "label selector for pods (e.g. app=api)")
 	pflag.BoolVar(&dryRun, "dry-run", false, "print kubectl command without executing")
-	pflag.BoolVar(&confirmContext, "confirm-context", false, "confirm when context/namespace looks like prod (env: KUBEEXEC_CONFIRM_CONTEXT, config: ~/.config/kubeexec)")
-	pflag.BoolVar(&nonInteractive, "non-interactive", false, "run without stdin or TTY (no -i/-t), useful for scripts (env: KUBEEXEC_NON_INTERACTIVE, config: ~/.config/kubeexec)")
+	pflag.BoolVar(&confirmContext, "confirm-context", false, "confirm when context/namespace looks like prod (default: false)")
+	pflag.BoolVar(&nonInteractive, "non-interactive", false, "run without stdin or TTY (no -i/-t), useful for scripts (default: false)")
 	pflag.Usage = func() {
 		fmt.Fprintln(os.Stdout, "USAGE:")
 		fmt.Fprintln(os.Stdout, "  kubeexec                          : select a pod and exec into it")
