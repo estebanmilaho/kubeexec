@@ -50,22 +50,22 @@ func resolveBoolSetting(flagSet bool, flagValue bool, envVar string, configKey s
 	if err != nil {
 		return false, err
 	}
-	if configKey == "confirm-context" && settings.confirmContext != nil {
-		return *settings.confirmContext, nil
+	if configKey == "confirm-context" && settings.ConfirmContext != nil {
+		return *settings.ConfirmContext, nil
 	}
-	if configKey == "non-interactive" && settings.nonInteractive != nil {
-		return *settings.nonInteractive, nil
+	if configKey == "non-interactive" && settings.NonInteractive != nil {
+		return *settings.NonInteractive, nil
 	}
-	if configKey == "ignore-fzf" && settings.ignoreFzf != nil {
-		return *settings.ignoreFzf, nil
+	if configKey == "ignore-fzf" && settings.IgnoreFzf != nil {
+		return *settings.IgnoreFzf, nil
 	}
 	return false, nil
 }
 
 type configSettings struct {
-	confirmContext *bool `toml:"confirm-context"`
-	nonInteractive *bool `toml:"non-interactive"`
-	ignoreFzf      *bool `toml:"ignore-fzf"`
+	ConfirmContext *bool `toml:"confirm-context"`
+	NonInteractive *bool `toml:"non-interactive"`
+	IgnoreFzf      *bool `toml:"ignore-fzf"`
 }
 
 func loadConfigSettings() (configSettings, error) {

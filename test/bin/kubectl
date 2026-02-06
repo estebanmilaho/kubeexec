@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+args=("$@")
+# Strip leading --context <ctx> if present
+if [[ ${#args[@]} -ge 2 && ${args[0]} == "--context" ]]; then
+  args=("${args[@]:2}")
+fi
+
+case "${args[0]:-}" in
+  config)
+    case "${args[1]:-}" in
+      current-context)
+        echo "ctx"
+        exit 0
+        ;;
+      get-contexts)
+        echo "ctx"
+        exit 0
+        ;;
+      view)
+        echo "ns"
+        exit 0
+        ;;
+    esac
+    ;;
+  get)
+    case "${args[1]:-}" in
+      pods)
+        echo "app-1 true Running"
+        echo "app-2 true Running"
+        exit 0
+        ;;
+      pod)
+        # default container followed by container list
+        echo "app"
+        echo "app"
+        exit 0
+        ;;
+    esac
+    ;;
+  exec)
+    # no-op
+    exit 0
+    ;;
+ esac
+
+echo "unexpected kubectl args: ${args[*]}" >&2
+exit 1

@@ -72,6 +72,7 @@ func main() {
 		fmt.Fprintln(os.Stdout, "  - Confirm context can be configured via --confirm-context, KUBEEXEC_CONFIRM_CONTEXT, or ~/.config/kubeexec/kubeexec.toml")
 		fmt.Fprintln(os.Stdout, "  - Non-interactive can be configured via --non-interactive, KUBEEXEC_NON_INTERACTIVE, or ~/.config/kubeexec/kubeexec.toml")
 		fmt.Fprintln(os.Stdout, "  - Disable fzf prompts with KUBEEXEC_IGNORE_FZF or ignore-fzf = true in ~/.config/kubeexec/kubeexec.toml")
+		fmt.Fprintln(os.Stdout, "  - Config file location (including Homebrew installs): ~/.config/kubeexec/kubeexec.toml")
 		fmt.Fprintln(os.Stdout, "  - Config file uses TOML booleans: confirm-context = true/false, non-interactive = true/false, ignore-fzf = true/false")
 	}
 	pflag.CommandLine.SetOutput(io.Discard)

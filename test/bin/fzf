@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Output first non-empty line from stdin
+while IFS= read -r line; do
+  if [[ -n "$line" ]]; then
+    echo "$line"
+    exit 0
+  fi
+done
+exit 1
