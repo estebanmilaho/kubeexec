@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func Run(contextArg, namespace, container, selector, podArg string, dryRun bool, contextRequested bool) error {
+func Run(contextArg, namespace, container, selector, podArg string, dryRun bool, contextRequested bool, confirmContext bool) error {
 	if _, err := exec.LookPath("kubectl"); err != nil {
 		return fmt.Errorf("kubectl not found")
 	}
@@ -115,15 +115,15 @@ func Run(contextArg, namespace, container, selector, podArg string, dryRun bool,
 		if !contains(containers, container) {
 			return fmt.Errorf("container %q not found in pod %q (available: %s)", container, pod, strings.Join(containers, ", "))
 		}
-		return execOrPrint(context, namespace, pod, container, dryRun)
+		return execOrPrint(context, namespace, pod, container, dryRun, confirmContext)
 	}
 
 	if len(containers) == 1 {
-		return execOrPrint(context, namespace, pod, containers[0], dryRun)
+		return execOrPrint(context, namespace, pod, containers[0], dryRun, confirmContext)
 	}
 	if defaultContainer != "" {
 		fmt.Fprintf(os.Stderr, "note: pod has multiple containers (%s); using default %q. Use -c to select another.\n", strings.Join(containers, ", "), defaultContainer)
-		return execOrPrint(context, namespace, pod, defaultContainer, dryRun)
+		return execOrPrint(context, namespace, pod, defaultContainer, dryRun, confirmContext)
 	}
 
 	if err := ensureFzf(); err != nil {
@@ -137,7 +137,7 @@ func Run(contextArg, namespace, container, selector, podArg string, dryRun bool,
 		return fmt.Errorf("no container selected")
 	}
 
-	return execOrPrint(context, namespace, pod, containerChoice, dryRun)
+	return execOrPrint(context, namespace, pod, containerChoice, dryRun, confirmContext)
 }
 
 func contains(items []string, item string) bool {
@@ -266,11 +266,16 @@ func ensureFzf() error {
 	return nil
 }
 
-func execOrPrint(context, namespace, pod, container string, dryRun bool) error {
+func execOrPrint(context, namespace, pod, container string, dryRun bool, confirmContext bool) error {
 	if dryRun {
 		args := ExecArgs(context, namespace, pod, container)
 		fmt.Fprintln(os.Stdout, "kubectl "+strings.Join(args, " "))
 		return nil
+	}
+	if confirmContext && confirmContextMatch(context, namespace) {
+		if err := confirmContextPrompt(context, namespace); err != nil {
+			return err
+		}
 	}
 	return ExecPod(context, namespace, pod, container)
 }

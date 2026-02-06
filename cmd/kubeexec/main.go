@@ -22,6 +22,7 @@ func main() {
 	var context string
 	var dryRun bool
 	var pod string
+	var confirmContext bool
 	pflag.BoolVarP(&showVersion, "version", "v", false, "print version and exit")
 	pflag.BoolVarP(&showHelp, "help", "h", false, "show this message")
 	pflag.StringVar(&context, "context", "", "kubernetes context (overrides current context)")
@@ -32,6 +33,7 @@ func main() {
 	pflag.StringVarP(&container, "container", "c", "", "container name (defaults to pod's default)")
 	pflag.StringVarP(&selector, "selector", "l", "", "label selector for pods (e.g. app=api)")
 	pflag.BoolVar(&dryRun, "dry-run", false, "print kubectl command without executing")
+	pflag.BoolVar(&confirmContext, "confirm-context", false, "confirm when context/namespace looks like prod (env: KUBEEXEC_CONFIRM_CONTEXT, config: ~/.config/kubeexec)")
 	pflag.Usage = func() {
 		fmt.Fprint(os.Stdout, `USAGE:
   kubeexec                          : select a pod and exec into it
@@ -42,6 +44,7 @@ func main() {
   kubeexec -c, --container <NAME>   : exec into a specific container
   kubeexec -l, --selector <SEL>     : filter pods by label selector
   kubeexec --dry-run                : print the kubectl exec command and exit
+  kubeexec --confirm-context[=true|false] : confirm when context/namespace looks like prod
   kubeexec <POD> -c <NAME>          : exec into a specific container in a pod
   kubeexec -n <NS> -c <NAME>        : specify both namespace and container
   kubeexec -n <NS> -l <SEL>         : specify both namespace and selector
@@ -55,6 +58,7 @@ NOTES:
   - If a default container exists, it will be used; pass -c to override
   - Selector uses standard kubectl label selector syntax (e.g. app=api,env=prod)
   - If --context or <POD> matches multiple entries, you will be prompted with fzf
+  - Confirm context can be configured via --confirm-context, KUBEEXEC_CONFIRM_CONTEXT, or ~/.config/kubeexec (true/True/1/false/False/0)
 `)
 	}
 	pflag.CommandLine.SetOutput(io.Discard)
@@ -73,6 +77,15 @@ NOTES:
 	contextRequested := false
 	if f := pflag.Lookup("context"); f != nil && f.Changed {
 		contextRequested = true
+	}
+	confirmContextRequested := false
+	if f := pflag.Lookup("confirm-context"); f != nil && f.Changed {
+		confirmContextRequested = true
+	}
+	confirmContextEnabled, err := cmdutil.ResolveConfirmContext(confirmContextRequested, confirmContext)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(2)
 	}
 	args := pflag.Args()
 	if len(args) > 0 && args[0] == "version" {
@@ -98,7 +111,7 @@ NOTES:
 		return
 	}
 
-	if err := cmdutil.Run(context, namespace, container, selector, pod, dryRun, contextRequested); err != nil {
+	if err := cmdutil.Run(context, namespace, container, selector, pod, dryRun, contextRequested, confirmContextEnabled); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
