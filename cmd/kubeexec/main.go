@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/pflag"
@@ -34,8 +35,14 @@ func main() {
 	pflag.StringVarP(&container, "container", "c", "", "container name (defaults to pod's default)")
 	pflag.StringVarP(&selector, "selector", "l", "", "label selector for pods (e.g. app=api)")
 	pflag.BoolVar(&dryRun, "dry-run", false, "print kubectl command without executing")
-	pflag.BoolVar(&confirmContext, "confirm-context", false, "confirm when context/namespace looks like prod (default: false)")
-	pflag.BoolVar(&nonInteractive, "non-interactive", false, "run without stdin or TTY (no -i/-t), useful for scripts (default: false)")
+	pflag.Var(newConfirmBoolFlag(&confirmContext), "confirm-context", "confirm when context/namespace looks like prod (values: true/True/1/on/ON/false/False/0/off/OFF; env: KUBEEXEC_CONFIRM_CONTEXT; config: ~/.config/kubeexec/kubeexec.toml, TOML boolean)")
+	if f := pflag.Lookup("confirm-context"); f != nil {
+		f.NoOptDefVal = "true"
+	}
+	pflag.Var(newConfirmBoolFlag(&nonInteractive), "non-interactive", "run without stdin or TTY (no -i/-t), useful for scripts (values: true/True/1/on/ON/false/False/0/off/OFF; env: KUBEEXEC_NON_INTERACTIVE; config: ~/.config/kubeexec/kubeexec.toml, TOML boolean)")
+	if f := pflag.Lookup("non-interactive"); f != nil {
+		f.NoOptDefVal = "true"
+	}
 	pflag.Usage = func() {
 		fmt.Fprintln(os.Stdout, "USAGE:")
 		fmt.Fprintln(os.Stdout, "  kubeexec                          : select a pod and exec into it")
@@ -61,9 +68,9 @@ func main() {
 		fmt.Fprintln(os.Stdout, "  - If a default container exists, it will be used; pass -c to override")
 		fmt.Fprintln(os.Stdout, "  - Selector uses standard kubectl label selector syntax (e.g. app=api,env=prod)")
 		fmt.Fprintln(os.Stdout, "  - If --context or <POD> matches multiple entries, you will be prompted with fzf")
-		fmt.Fprintln(os.Stdout, "  - Confirm context can be configured via --confirm-context, KUBEEXEC_CONFIRM_CONTEXT, or ~/.config/kubeexec (true/True/1/on/ON/false/False/0/off/OFF)")
-		fmt.Fprintln(os.Stdout, "  - Non-interactive can be configured via --non-interactive, KUBEEXEC_NON_INTERACTIVE, or ~/.config/kubeexec")
-		fmt.Fprintln(os.Stdout, "  - Config file uses key=value lines (confirm-context, non-interactive)")
+		fmt.Fprintln(os.Stdout, "  - Confirm context can be configured via --confirm-context, KUBEEXEC_CONFIRM_CONTEXT, or ~/.config/kubeexec/kubeexec.toml")
+		fmt.Fprintln(os.Stdout, "  - Non-interactive can be configured via --non-interactive, KUBEEXEC_NON_INTERACTIVE, or ~/.config/kubeexec/kubeexec.toml")
+		fmt.Fprintln(os.Stdout, "  - Config file uses TOML booleans: confirm-context = true/false, non-interactive = true/false")
 	}
 	pflag.CommandLine.SetOutput(io.Discard)
 	flagArgs, commandArgs := splitCommandArgs(os.Args[1:])
@@ -166,4 +173,32 @@ func splitCommandArgs(args []string) (flags []string, command []string) {
 		}
 	}
 	return append([]string(nil), args...), nil
+}
+
+type confirmBoolFlag struct {
+	value *bool
+}
+
+func newConfirmBoolFlag(value *bool) *confirmBoolFlag {
+	return &confirmBoolFlag{value: value}
+}
+
+func (b *confirmBoolFlag) String() string {
+	if b == nil || b.value == nil {
+		return "false"
+	}
+	return strconv.FormatBool(*b.value)
+}
+
+func (b *confirmBoolFlag) Set(value string) error {
+	parsed, ok := cmdutil.ParseConfirmBool(value)
+	if !ok {
+		return fmt.Errorf("invalid value %q (use true/True/1/on/ON/false/False/0/off/OFF)", value)
+	}
+	*b.value = parsed
+	return nil
+}
+
+func (b *confirmBoolFlag) Type() string {
+	return "bool"
 }

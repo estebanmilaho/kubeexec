@@ -2,18 +2,22 @@ package cmdutil
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 const (
-	confirmContextEnvVar  = "KUBEEXEC_CONFIRM_CONTEXT"
-	nonInteractiveEnvVar  = "KUBEEXEC_NON_INTERACTIVE"
-	confirmBoolValueHint  = "true/True/1/on/ON/false/False/0/off/OFF"
-	confirmConfigFilename = ".config/kubeexec"
+	confirmContextEnvVar   = "KUBEEXEC_CONFIRM_CONTEXT"
+	nonInteractiveEnvVar   = "KUBEEXEC_NON_INTERACTIVE"
+	confirmBoolValueHint   = "true/True/1/on/ON/false/False/0/off/OFF"
+	confirmConfigValueHint = "true/false (TOML boolean)"
+	confirmConfigFilename  = ".config/kubeexec/kubeexec.toml"
 )
 
 var confirmContextKeywords = []string{"prod", "production", "live"}
@@ -31,7 +35,7 @@ func resolveBoolSetting(flagSet bool, flagValue bool, envVar string, configKey s
 		return flagValue, nil
 	}
 	if val, ok := os.LookupEnv(envVar); ok {
-		parsed, ok := parseConfirmBool(val)
+		parsed, ok := ParseConfirmBool(val)
 		if !ok {
 			return false, fmt.Errorf("invalid %s value %q (use %s)", envVar, val, confirmBoolValueHint)
 		}
@@ -51,8 +55,8 @@ func resolveBoolSetting(flagSet bool, flagValue bool, envVar string, configKey s
 }
 
 type configSettings struct {
-	confirmContext *bool
-	nonInteractive *bool
+	confirmContext *bool `toml:"confirm-context"`
+	nonInteractive *bool `toml:"non-interactive"`
 }
 
 func loadConfigSettings() (configSettings, error) {
@@ -70,40 +74,12 @@ func loadConfigSettings() (configSettings, error) {
 	}
 	content := strings.TrimSpace(string(data))
 	if content == "" {
-		return settings, fmt.Errorf("config %s is empty (use key=value lines with %s)", path, confirmBoolValueHint)
+		return settings, fmt.Errorf("config %s is empty (expected TOML booleans: %s)", path, confirmConfigValueHint)
 	}
-	scanner := bufio.NewScanner(strings.NewReader(content))
-	lineNo := 0
-	for scanner.Scan() {
-		lineNo++
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		key, value, ok := strings.Cut(line, "=")
-		if !ok {
-			return settings, fmt.Errorf("invalid config %s:%d (expected key=value)", path, lineNo)
-		}
-		key = strings.TrimSpace(key)
-		value = strings.TrimSpace(value)
-		if key == "" || value == "" {
-			return settings, fmt.Errorf("invalid config %s:%d (expected key=value)", path, lineNo)
-		}
-		parsed, ok := parseConfirmBool(value)
-		if !ok {
-			return settings, fmt.Errorf("invalid value for %s in %s:%d: %q (use %s)", key, path, lineNo, value, confirmBoolValueHint)
-		}
-		switch key {
-		case "confirm-context":
-			settings.confirmContext = &parsed
-		case "non-interactive":
-			settings.nonInteractive = &parsed
-		default:
-			return settings, fmt.Errorf("unknown key %q in %s:%d", key, path, lineNo)
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return settings, fmt.Errorf("read config %s: %w", path, err)
+	decoder := toml.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&settings); err != nil {
+		return settings, fmt.Errorf("parse config %s: %w", path, err)
 	}
 	return settings, nil
 }
@@ -116,7 +92,7 @@ func kubeexecConfigPath() (string, error) {
 	return filepath.Join(home, confirmConfigFilename), nil
 }
 
-func parseConfirmBool(value string) (bool, bool) {
+func ParseConfirmBool(value string) (bool, bool) {
 	switch strings.TrimSpace(value) {
 	case "true", "True", "1", "on", "ON":
 		return true, true
