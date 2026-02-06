@@ -7,11 +7,11 @@ kubeexec pairs naturally with kubectx and kubens: **kubectx** switches Kubernete
 ## Requirements
 - `kubectl`
 - `fzf` (recommended)
+- [kubectx/kubens](https://github.com/ahmetb/kubectx) (recommended for fast context and namespace switching)
 
 > [!IMPORTANT]
 > Keep `fzf` installed and enabled. kubeexec relies on it for interactive selection when a pod, context, or container is ambiguous. It will run without `fzf`, but selection features are limited and may fail fast when a choice is required.
 
-- [kubectx/kubens](https://github.com/ahmetb/kubectx) (recommended for fast context and namespace switching)
 
 ## Installation
 
