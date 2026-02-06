@@ -25,6 +25,7 @@ func main() {
 	var pod string
 	var confirmContext bool
 	var nonInteractive bool
+	var ignoreFzf bool
 	pflag.BoolVarP(&showVersion, "version", "v", false, "print version and exit")
 	pflag.BoolVarP(&showHelp, "help", "h", false, "show this message")
 	pflag.StringVar(&context, "context", "", "kubernetes context (overrides current context)")
@@ -70,7 +71,8 @@ func main() {
 		fmt.Fprintln(os.Stdout, "  - If --context or <POD> matches multiple entries, you will be prompted with fzf")
 		fmt.Fprintln(os.Stdout, "  - Confirm context can be configured via --confirm-context, KUBEEXEC_CONFIRM_CONTEXT, or ~/.config/kubeexec/kubeexec.toml")
 		fmt.Fprintln(os.Stdout, "  - Non-interactive can be configured via --non-interactive, KUBEEXEC_NON_INTERACTIVE, or ~/.config/kubeexec/kubeexec.toml")
-		fmt.Fprintln(os.Stdout, "  - Config file uses TOML booleans: confirm-context = true/false, non-interactive = true/false")
+		fmt.Fprintln(os.Stdout, "  - Disable fzf prompts with KUBEEXEC_IGNORE_FZF or ignore-fzf = true in ~/.config/kubeexec/kubeexec.toml")
+		fmt.Fprintln(os.Stdout, "  - Config file uses TOML booleans: confirm-context = true/false, non-interactive = true/false, ignore-fzf = true/false")
 	}
 	pflag.CommandLine.SetOutput(io.Discard)
 	flagArgs, commandArgs := splitCommandArgs(os.Args[1:])
@@ -108,6 +110,11 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(2)
 	}
+	ignoreFzfEnabled, err := cmdutil.ResolveIgnoreFzf(false, ignoreFzf)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(2)
+	}
 	args := pflag.Args()
 	if len(args) > 0 && args[0] == "version" {
 		fmt.Println(version)
@@ -132,7 +139,7 @@ func main() {
 		return
 	}
 
-	if err := cmdutil.Run(context, namespace, container, selector, pod, commandArgs, dryRun, contextRequested, confirmContextEnabled, nonInteractiveEnabled); err != nil {
+	if err := cmdutil.Run(context, namespace, container, selector, pod, commandArgs, dryRun, contextRequested, confirmContextEnabled, nonInteractiveEnabled, ignoreFzfEnabled); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}

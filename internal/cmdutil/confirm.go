@@ -15,6 +15,7 @@ import (
 const (
 	confirmContextEnvVar   = "KUBEEXEC_CONFIRM_CONTEXT"
 	nonInteractiveEnvVar   = "KUBEEXEC_NON_INTERACTIVE"
+	ignoreFzfEnvVar        = "KUBEEXEC_IGNORE_FZF"
 	confirmBoolValueHint   = "true/True/1/on/ON/false/False/0/off/OFF"
 	confirmConfigValueHint = "true/false (TOML boolean)"
 	confirmConfigFilename  = ".config/kubeexec/kubeexec.toml"
@@ -28,6 +29,10 @@ func ResolveConfirmContext(flagSet bool, flagValue bool) (bool, error) {
 
 func ResolveNonInteractive(flagSet bool, flagValue bool) (bool, error) {
 	return resolveBoolSetting(flagSet, flagValue, nonInteractiveEnvVar, "non-interactive")
+}
+
+func ResolveIgnoreFzf(flagSet bool, flagValue bool) (bool, error) {
+	return resolveBoolSetting(flagSet, flagValue, ignoreFzfEnvVar, "ignore-fzf")
 }
 
 func resolveBoolSetting(flagSet bool, flagValue bool, envVar string, configKey string) (bool, error) {
@@ -51,12 +56,16 @@ func resolveBoolSetting(flagSet bool, flagValue bool, envVar string, configKey s
 	if configKey == "non-interactive" && settings.nonInteractive != nil {
 		return *settings.nonInteractive, nil
 	}
+	if configKey == "ignore-fzf" && settings.ignoreFzf != nil {
+		return *settings.ignoreFzf, nil
+	}
 	return false, nil
 }
 
 type configSettings struct {
 	confirmContext *bool `toml:"confirm-context"`
 	nonInteractive *bool `toml:"non-interactive"`
+	ignoreFzf      *bool `toml:"ignore-fzf"`
 }
 
 func loadConfigSettings() (configSettings, error) {

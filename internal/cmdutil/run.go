@@ -7,14 +7,14 @@ import (
 	"strings"
 )
 
-func Run(contextArg, namespace, container, selector, podArg string, command []string, dryRun bool, contextRequested bool, confirmContext bool, nonInteractive bool) error {
+func Run(contextArg, namespace, container, selector, podArg string, command []string, dryRun bool, contextRequested bool, confirmContext bool, nonInteractive bool, ignoreFzf bool) error {
 	if _, err := exec.LookPath("kubectl"); err != nil {
 		return fmt.Errorf("kubectl not found")
 	}
 
 	context := contextArg
 	if contextRequested {
-		resolved, err := resolveContext(contextArg)
+		resolved, err := resolveContext(contextArg, ignoreFzf)
 		if err != nil {
 			return err
 		}
@@ -60,8 +60,11 @@ func Run(contextArg, namespace, container, selector, podArg string, command []st
 
 	pod := ""
 	if podArg == "" {
+		if ignoreFzf {
+			return fmt.Errorf("pod not specified and fzf is disabled; provide a pod name or enable fzf")
+		}
 		header := buildPodHeader(context, namespace, selector, "")
-		if err := ensureFzf(); err != nil {
+		if err := ensureFzf(ignoreFzf, "pod"); err != nil {
 			return err
 		}
 		choice, err := ChooseWithFzf(podDisplays(pods), header)
@@ -85,8 +88,11 @@ func Run(contextArg, namespace, container, selector, podArg string, command []st
 		if len(matches) == 1 {
 			pod = matches[0].Name
 		} else {
+			if ignoreFzf {
+				return fmt.Errorf("pod query %q matches multiple entries and fzf is disabled; provide a full pod name or enable fzf", podArg)
+			}
 			header := buildPodHeader(context, namespace, selector, "pod: "+podArg)
-			if err := ensureFzf(); err != nil {
+			if err := ensureFzf(ignoreFzf, "pod"); err != nil {
 				return err
 			}
 			choice, err := ChooseWithFzf(podDisplays(matches), header)
@@ -126,7 +132,10 @@ func Run(contextArg, namespace, container, selector, podArg string, command []st
 		return execOrPrint(context, namespace, pod, defaultContainer, command, dryRun, confirmContext, nonInteractive)
 	}
 
-	if err := ensureFzf(); err != nil {
+	if ignoreFzf {
+		return fmt.Errorf("pod %q has multiple containers and fzf is disabled; use -c to select a container or enable fzf", pod)
+	}
+	if err := ensureFzf(ignoreFzf, "container"); err != nil {
 		return err
 	}
 	containerChoice, err := ChooseWithFzf(containers, fmt.Sprintf("pod: %s", pod))
@@ -215,7 +224,7 @@ func buildPodHeader(context, namespace, selector, podQuery string) string {
 	return strings.Join(parts, "  ")
 }
 
-func resolveContext(query string) (string, error) {
+func resolveContext(query string, ignoreFzf bool) (string, error) {
 	contexts, err := GetContexts()
 	if err != nil {
 		return "", err
@@ -224,7 +233,10 @@ func resolveContext(query string) (string, error) {
 		return "", fmt.Errorf("no kubernetes contexts found")
 	}
 	if query == "" {
-		if err := ensureFzf(); err != nil {
+		if ignoreFzf {
+			return "", fmt.Errorf("context not specified and fzf is disabled; provide --context <name> or enable fzf")
+		}
+		if err := ensureFzf(ignoreFzf, "context"); err != nil {
 			return "", err
 		}
 		choice, err := ChooseWithFzf(contexts, "select context")
@@ -246,7 +258,10 @@ func resolveContext(query string) (string, error) {
 	if len(matches) == 1 {
 		return matches[0], nil
 	}
-	if err := ensureFzf(); err != nil {
+	if ignoreFzf {
+		return "", fmt.Errorf("context query %q matches multiple entries and fzf is disabled; provide a full context name or enable fzf", query)
+	}
+	if err := ensureFzf(ignoreFzf, "context"); err != nil {
 		return "", err
 	}
 	choice, err := ChooseWithFzf(matches, "context query: "+query)
@@ -259,7 +274,10 @@ func resolveContext(query string) (string, error) {
 	return choice, nil
 }
 
-func ensureFzf() error {
+func ensureFzf(ignoreFzf bool, selection string) error {
+	if ignoreFzf {
+		return fmt.Errorf("fzf is disabled; cannot select %s", selection)
+	}
 	if _, err := exec.LookPath("fzf"); err != nil {
 		return fmt.Errorf("fzf not found")
 	}
