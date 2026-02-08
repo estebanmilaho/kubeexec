@@ -21,6 +21,7 @@ release:
   github:
     owner: estebanmilaho
     name: kubeexec
+    replace_existing_artifacts: true
 
 brews:
   - name: kubeexec
