@@ -15,9 +15,12 @@ jobs:
 
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25"
@@ -29,3 +32,104 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+      - name: Update krew manifest checksums
+        env:
+          TAG: ${{ github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          if [ ! -f dist/checksums.txt ]; then
+            echo "dist/checksums.txt not found"
+            exit 1
+          fi
+
+          BRANCH="automation/krew-manifest-${TAG}"
+          git fetch origin "${DEFAULT_BRANCH}"
+          git checkout -B "${DEFAULT_BRANCH}" "origin/${DEFAULT_BRANCH}"
+          git checkout -b "${BRANCH}"
+
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          tag = os.environ["TAG"]
+          tag_no_v = tag[1:] if tag.startswith("v") else tag
+          checksums_path = Path("dist/checksums.txt")
+          checksums = {}
+          for line in checksums_path.read_text().splitlines():
+            line = line.strip()
+            if not line:
+              continue
+            parts = line.split()
+            if len(parts) < 2:
+              continue
+            sha = parts[0]
+            name = parts[-1]
+            checksums[name] = sha
+
+          def find_sha(os_name, arch):
+            filename = f"kubeexec_{tag_no_v}_{os_name}_{arch}.tar.gz"
+            sha = checksums.get(filename)
+            if not sha:
+              raise SystemExit(f"missing checksum for {filename}")
+            return sha
+
+          shas = {
+            ("darwin", "amd64"): find_sha("darwin", "amd64"),
+            ("darwin", "arm64"): find_sha("darwin", "arm64"),
+            ("linux", "amd64"): find_sha("linux", "amd64"),
+            ("linux", "arm64"): find_sha("linux", "arm64"),
+          }
+
+          path = Path(".krew/kubeexec.yaml")
+          text = path.read_text()
+          text = re.sub(r'(?m)^  version: ".*"$', f'  version: "{tag}"', text)
+
+          lines = text.splitlines()
+          current_os = None
+          current_arch = None
+          replaced = set()
+          for i, line in enumerate(lines):
+            s = line.strip()
+            if s == "- selector:":
+              current_os = None
+              current_arch = None
+              continue
+            if s.startswith("os: "):
+              current_os = s.split(":", 1)[1].strip()
+              continue
+            if s.startswith("arch: "):
+              current_arch = s.split(":", 1)[1].strip()
+              continue
+            if s.startswith("sha256:") and current_os and current_arch:
+              key = (current_os, current_arch)
+              if key in shas:
+                lines[i] = re.sub(r'"[^"]*"', f'"{shas[key]}"', line)
+                replaced.add(key)
+
+          missing = set(shas.keys()) - replaced
+          if missing:
+            raise SystemExit(f"failed to update sha256 for: {sorted(missing)}")
+
+          path.write_text("\n".join(lines) + "\n")
+          PY
+
+          if git diff --quiet -- .krew/kubeexec.yaml; then
+            echo "krew manifest unchanged"
+            exit 0
+          fi
+
+          git add .krew/kubeexec.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update krew manifest for ${TAG}"
+          git push -u origin "${BRANCH}"
+
+          gh pr create \
+            --base "${DEFAULT_BRANCH}" \
+            --head "${BRANCH}" \
+            --title "Update krew manifest for ${TAG}" \
+            --body "Automated update of .krew/kubeexec.yaml with checksums for ${TAG}."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

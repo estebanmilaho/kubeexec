@@ -92,11 +92,5 @@ Values accepted for env and flags: `true`, `True`, `1`, `on`, `ON`, `false`, `Fa
 - If `fzf` is disabled and a selection is required, kubeexec fails fast with a clear error.
 - Default is `fzf` enabled.
 
-## Version
-```bash
-kubeexec --version
-kubeexec version
-```
-
 ## License
 Apache License 2.0. See `LICENSE`.
