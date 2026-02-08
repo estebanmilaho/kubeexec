@@ -1,3 +1,5 @@
+version: 2
+
 project_name: kubeexec
 
 builds:
@@ -9,7 +11,7 @@ builds:
     goarch: [amd64, arm64]
 
 archives:
-  - format: tar.gz
+  - formats: [tar.gz]
     files:
       - completion/kubeexec.bash
       - completion/_kubeexec
@@ -36,3 +38,20 @@ brews:
       fish_completion.install "completion/kubeexec.fish"
     test: |
       system "#{bin}/kubeexec", "-version"
+
+krews:
+  - name: kubeexec
+    ids:
+      - default
+    homepage: https://github.com/estebanmilaho/kubeexec
+    short_description: "Fast `kubectl exec` with fuzzy pod selection."
+    description: "Select a pod with fzf and run kubectl exec (shell or command) in it."
+    url_template: "https://github.com/estebanmilaho/kubeexec/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+    commit_msg_template: "Update krew manifest for {{ .Tag }}"
+    repository:
+      owner: estebanmilaho
+      name: kubeexec
+      branch: "krew-{{ .Tag }}"
+      pull_request:
+        enabled: true
+        draft: false
