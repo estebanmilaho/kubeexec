@@ -21,7 +21,7 @@ const (
 	confirmConfigFilename  = ".config/kubeexec/kubeexec.toml"
 )
 
-var confirmContextKeywords = []string{"prod", "production", "live"}
+var defaultConfirmContextKeywords = []string{"prod", "production", "live"}
 
 func ResolveConfirmContext(flagSet bool, flagValue bool) (bool, error) {
 	return resolveBoolSetting(flagSet, flagValue, confirmContextEnvVar, "confirm-context")
@@ -63,9 +63,10 @@ func resolveBoolSetting(flagSet bool, flagValue bool, envVar string, configKey s
 }
 
 type configSettings struct {
-	ConfirmContext *bool `toml:"confirm-context"`
-	NonInteractive *bool `toml:"non-interactive"`
-	IgnoreFzf      *bool `toml:"ignore-fzf"`
+	ConfirmContext         *bool    `toml:"confirm-context"`
+	NonInteractive         *bool    `toml:"non-interactive"`
+	IgnoreFzf              *bool    `toml:"ignore-fzf"`
+	ConfirmContextKeywords []string `toml:"confirm-context-keywords"`
 }
 
 func loadConfigSettings() (configSettings, error) {
@@ -112,18 +113,37 @@ func ParseConfirmBool(value string) (bool, bool) {
 	}
 }
 
-func confirmContextMatch(context, namespace string) bool {
-	return containsKeyword(context) || containsKeyword(namespace)
+func resolveConfirmContextKeywords() []string {
+	settings, err := loadConfigSettings()
+	if err == nil && len(settings.ConfirmContextKeywords) > 0 {
+		return settings.ConfirmContextKeywords
+	}
+	return defaultConfirmContextKeywords
 }
 
-func containsKeyword(value string) bool {
+func confirmContextMatch(context, namespace string) bool {
+	keywords := resolveConfirmContextKeywords()
+	return containsKeyword(context, keywords) || containsKeyword(namespace, keywords)
+}
+
+func containsKeyword(value string, keywords []string) bool {
 	lower := strings.ToLower(value)
-	for _, keyword := range confirmContextKeywords {
-		if strings.Contains(lower, keyword) {
-			return true
+	segments := segmentName(lower)
+	for _, keyword := range keywords {
+		for _, seg := range segments {
+			if seg == keyword {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+// segmentName splits a context/namespace name into segments by common delimiters.
+func segmentName(s string) []string {
+	return strings.FieldsFunc(s, func(r rune) bool {
+		return r == '-' || r == '_' || r == '.' || r == '/'
+	})
 }
 
 func confirmContextPrompt(context, namespace string) error {

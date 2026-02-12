@@ -143,7 +143,20 @@ func main() {
 		return
 	}
 
-	if err := cmdutil.Run(context, namespace, container, selector, pod, commandArgs, dryRun, contextRequested, confirmContextEnabled, nonInteractiveEnabled, ignoreFzfEnabled, allNamespaces); err != nil {
+	if err := cmdutil.Run(cmdutil.RunOptions{
+		Context:          context,
+		Namespace:        namespace,
+		Container:        container,
+		Selector:         selector,
+		Pod:              pod,
+		Command:          commandArgs,
+		DryRun:           dryRun,
+		ContextRequested: contextRequested,
+		ConfirmContext:   confirmContextEnabled,
+		NonInteractive:   nonInteractiveEnabled,
+		IgnoreFzf:        ignoreFzfEnabled,
+		AllNamespaces:    allNamespaces,
+	}); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}

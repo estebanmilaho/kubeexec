@@ -27,7 +27,7 @@ brews:
   - name: kubeexec
     homepage: https://github.com/estebanmilaho/kubeexec
     description: FZF-based kubectl exec into pods
-    license: MIT
+    license: Apache-2.0
     repository:
       owner: estebanmilaho
       name: homebrew-kubeexec

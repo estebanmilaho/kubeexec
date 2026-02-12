@@ -86,6 +86,12 @@ non-interactive = false
 ignore-fzf = false
 ```
 
+You can also customize which context/namespace keywords trigger the confirmation prompt. By default, contexts or namespaces containing the segments `prod`, `production`, or `live` will require confirmation. To override:
+```toml
+confirm-context-keywords = ["prod", "production", "live", "staging"]
+```
+Keywords are matched as whole segments split on `-`, `_`, `.`, `/` (e.g. `my-prod-cluster` matches `prod`, but `reproduce-bug` does not).
+
 Environment variables:
 - `KUBEEXEC_CONFIRM_CONTEXT`
 - `KUBEEXEC_NON_INTERACTIVE`

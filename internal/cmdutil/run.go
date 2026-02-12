@@ -7,35 +7,53 @@ import (
 	"strings"
 )
 
-func Run(contextArg, namespace, container, selector, podArg string, command []string, dryRun bool, contextRequested bool, confirmContext bool, nonInteractive bool, ignoreFzf bool, allNamespaces bool) error {
+type RunOptions struct {
+	Context          string
+	Namespace        string
+	Container        string
+	Selector         string
+	Pod              string
+	Command          []string
+	DryRun           bool
+	ContextRequested bool
+	ConfirmContext   bool
+	NonInteractive   bool
+	IgnoreFzf        bool
+	AllNamespaces    bool
+}
+
+func Run(opts RunOptions) error {
 	if _, err := exec.LookPath("kubectl"); err != nil {
 		return fmt.Errorf("kubectl not found")
 	}
 
-	context := contextArg
-	if contextRequested {
-		resolved, err := resolveContext(contextArg, ignoreFzf)
+	context := opts.Context
+	namespace := opts.Namespace
+	container := opts.Container
+	selector := opts.Selector
+	podArg := opts.Pod
+	command := opts.Command
+	dryRun := opts.DryRun
+	confirmContext := opts.ConfirmContext
+	nonInteractive := opts.NonInteractive
+	ignoreFzf := opts.IgnoreFzf
+	allNamespaces := opts.AllNamespaces
+
+	if opts.ContextRequested {
+		resolved, err := resolveContext(context, ignoreFzf)
 		if err != nil {
 			return err
 		}
 		context = resolved
 	}
 	if context == "" {
-		if namespace == "" {
-			var err error
-			context, err = CurrentContext()
-			if err != nil {
-				return err
-			}
-			if context == "" {
-				return fmt.Errorf("no kubernetes context is set")
-			}
-		} else {
-			ctx, err := CurrentContext()
-			if err != nil {
-				return err
-			}
-			context = ctx
+		var err error
+		context, err = CurrentContext()
+		if err != nil {
+			return err
+		}
+		if context == "" && namespace == "" {
+			return fmt.Errorf("no kubernetes context is set")
 		}
 	}
 
@@ -68,10 +86,10 @@ func Run(contextArg, namespace, container, selector, podArg string, command []st
 		if ignoreFzf {
 			return fmt.Errorf("pod not specified and fzf is disabled; provide a pod name or enable fzf")
 		}
-		header := buildPodHeader(context, namespace, selector, "", allNamespaces)
-		if err := ensureFzf(ignoreFzf, "pod"); err != nil {
+		if err := checkFzf(); err != nil {
 			return err
 		}
+		header := buildPodHeader(context, namespace, selector, "", allNamespaces)
 		choice, err := ChooseWithFzf(podDisplays(pods), header)
 		if err != nil {
 			return err
@@ -112,10 +130,10 @@ func Run(contextArg, namespace, container, selector, podArg string, command []st
 				}
 				return fmt.Errorf("pod query %q matches multiple entries and fzf is disabled; provide a full pod name or enable fzf", podArg)
 			}
-			header := buildPodHeader(context, namespace, selector, "pod: "+podArg, allNamespaces)
-			if err := ensureFzf(ignoreFzf, "pod"); err != nil {
+			if err := checkFzf(); err != nil {
 				return err
 			}
+			header := buildPodHeader(context, namespace, selector, "pod: "+podArg, allNamespaces)
 			choice, err := ChooseWithFzf(podDisplays(matches), header)
 			if err != nil {
 				return err
@@ -161,7 +179,7 @@ func Run(contextArg, namespace, container, selector, podArg string, command []st
 	if ignoreFzf {
 		return fmt.Errorf("pod %q has multiple containers and fzf is disabled; use -c to select a container or enable fzf", pod)
 	}
-	if err := ensureFzf(ignoreFzf, "container"); err != nil {
+	if err := checkFzf(); err != nil {
 		return err
 	}
 	containerChoice, err := ChooseWithFzf(containers, fmt.Sprintf("pod: %s", pod))
@@ -226,8 +244,9 @@ func podDisplays(pods []PodItem) []string {
 }
 
 func podFromChoice(pods []PodItem, choice string) (PodItem, bool) {
+	trimmed := strings.TrimSpace(choice)
 	for _, pod := range pods {
-		if pod.Display == choice {
+		if strings.TrimSpace(pod.Display) == trimmed {
 			return pod, true
 		}
 	}
@@ -287,7 +306,7 @@ func resolveContext(query string, ignoreFzf bool) (string, error) {
 		if ignoreFzf {
 			return "", fmt.Errorf("context not specified and fzf is disabled; provide --context <name> or enable fzf")
 		}
-		if err := ensureFzf(ignoreFzf, "context"); err != nil {
+		if err := checkFzf(); err != nil {
 			return "", err
 		}
 		choice, err := ChooseWithFzf(contexts, "select context")
@@ -312,7 +331,7 @@ func resolveContext(query string, ignoreFzf bool) (string, error) {
 	if ignoreFzf {
 		return "", fmt.Errorf("context query %q matches multiple entries and fzf is disabled; provide a full context name or enable fzf", query)
 	}
-	if err := ensureFzf(ignoreFzf, "context"); err != nil {
+	if err := checkFzf(); err != nil {
 		return "", err
 	}
 	choice, err := ChooseWithFzf(matches, "context query: "+query)
@@ -325,10 +344,7 @@ func resolveContext(query string, ignoreFzf bool) (string, error) {
 	return choice, nil
 }
 
-func ensureFzf(ignoreFzf bool, selection string) error {
-	if ignoreFzf {
-		return fmt.Errorf("fzf is disabled; cannot select %s", selection)
-	}
+func checkFzf() error {
 	if _, err := exec.LookPath("fzf"); err != nil {
 		return fmt.Errorf("fzf not found")
 	}

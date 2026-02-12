@@ -60,3 +60,36 @@ func hasSubsequence(args []string, expected []string) bool {
 	needle := strings.Join(expected, "\x00")
 	return strings.Contains(joined, needle)
 }
+
+func TestFormatReady(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{"empty string", "", "-"},
+		{"none", "<none>", "-"},
+		{"dash", "-", "-"},
+		{"single true", "true", "1/1"},
+		{"single false", "false", "0/1"},
+		{"two true", "true,true", "2/2"},
+		{"mixed booleans", "true,false", "1/2"},
+		{"three mixed", "true,false,true", "2/3"},
+		{"all false", "false,false", "0/2"},
+		{"already fraction", "1/2", "1/2"},
+		{"full fraction", "3/3", "3/3"},
+		{"whitespace", "  true  ", "1/1"},
+		{"comma with spaces", "true, false", "1/2"},
+		{"numeric passthrough", "42", "42"},
+		{"case insensitive true", "True", "1/1"},
+		{"case insensitive false", "False", "0/1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatReady(tt.raw)
+			if got != tt.want {
+				t.Errorf("formatReady(%q) = %q, want %q", tt.raw, got, tt.want)
+			}
+		})
+	}
+}
