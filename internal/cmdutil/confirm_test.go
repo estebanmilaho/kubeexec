@@ -191,3 +191,25 @@ func TestConfirmContextKeywordsDefault(t *testing.T) {
 		}
 	}
 }
+
+func TestConfirmContextKeywordsNormalize(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	path := filepath.Join(dir, ".config", "kubeexec", "kubeexec.toml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(path, []byte("confirm-context-keywords = [\" Prod \", \"\", \"LIVE\", \" staging \"]\n"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	keywords := resolveConfirmContextKeywords()
+	expected := []string{"prod", "live", "staging"}
+	if len(keywords) != len(expected) {
+		t.Fatalf("expected %d keywords, got %d: %v", len(expected), len(keywords), keywords)
+	}
+	for i := range expected {
+		if keywords[i] != expected[i] {
+			t.Errorf("keyword[%d] = %q, want %q", i, keywords[i], expected[i])
+		}
+	}
+}

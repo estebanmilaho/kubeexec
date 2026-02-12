@@ -116,9 +116,11 @@ func ParseConfirmBool(value string) (bool, bool) {
 func resolveConfirmContextKeywords() []string {
 	settings, err := loadConfigSettings()
 	if err == nil && len(settings.ConfirmContextKeywords) > 0 {
-		return settings.ConfirmContextKeywords
+		if normalized := normalizeKeywords(settings.ConfirmContextKeywords); len(normalized) > 0 {
+			return normalized
+		}
 	}
-	return defaultConfirmContextKeywords
+	return normalizeKeywords(defaultConfirmContextKeywords)
 }
 
 func confirmContextMatch(context, namespace string) bool {
@@ -137,6 +139,18 @@ func containsKeyword(value string, keywords []string) bool {
 		}
 	}
 	return false
+}
+
+func normalizeKeywords(keywords []string) []string {
+	normalized := make([]string, 0, len(keywords))
+	for _, keyword := range keywords {
+		keyword = strings.TrimSpace(strings.ToLower(keyword))
+		if keyword == "" {
+			continue
+		}
+		normalized = append(normalized, keyword)
+	}
+	return normalized
 }
 
 // segmentName splits a context/namespace name into segments by common delimiters.

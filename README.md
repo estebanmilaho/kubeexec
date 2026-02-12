@@ -90,7 +90,7 @@ You can also customize which context/namespace keywords trigger the confirmation
 ```toml
 confirm-context-keywords = ["prod", "production", "live", "staging"]
 ```
-Keywords are matched as whole segments split on `-`, `_`, `.`, `/` (e.g. `my-prod-cluster` matches `prod`, but `reproduce-bug` does not).
+Keywords are case-insensitive, whitespace-trimmed, and matched as whole segments split on `-`, `_`, `.`, `/` (e.g. `my-prod-cluster` matches `prod`, but `reproduce-bug` does not).
 
 Environment variables:
 - `KUBEEXEC_CONFIRM_CONTEXT`
