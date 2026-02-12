@@ -105,3 +105,6 @@ Values accepted for env and flags: `true`, `True`, `1`, `on`, `ON`, `false`, `Fa
 
 ## License
 Apache License 2.0. See `LICENSE`.
+
+## Contributing
+Issues and PRs are welcome. Please see `CONTRIBUTING.md`.
