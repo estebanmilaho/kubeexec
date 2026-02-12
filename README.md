@@ -38,6 +38,7 @@ kubeexec --context <CTX>
 kubeexec --context
 kubeexec <POD> -c <NAME>
 kubeexec -n <NS> -l <SEL>
+kubeexec -A
 kubeexec -- <CMD> [ARGS]
 kubeexec <POD> -- <CMD> [ARGS]
 kubeexec -- <CMD> [ARGS]
@@ -57,6 +58,9 @@ kubeexec app-123 -- ls -la /var/log
 # Use a specific namespace and label selector
 kubeexec -n kube-system -l k8s-app=kube-dns
 
+# Select a pod across all namespaces
+kubeexec -A
+
 # Non-interactive execution (no -i/-t)
 kubeexec --non-interactive app-123 -- cat /etc/os-release
 ```
@@ -64,6 +68,7 @@ kubeexec --non-interactive app-123 -- cat /etc/os-release
 ## Behavior
 - Uses the current context/namespace by default.
 - You can override context and namespace with `--context` and `--namespace`.
+- Use `-A/--all-namespaces` to select pods across all namespaces (namespace is shown in the picker).
 - If multiple pods match and `fzf` is enabled, you will be prompted to choose.
 - If the pod has multiple containers and no default, you will be prompted to choose.
 - `--` passes a command directly to `kubectl exec` instead of starting a shell.

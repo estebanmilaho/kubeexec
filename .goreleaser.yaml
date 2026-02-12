@@ -48,11 +48,4 @@ krews:
     short_description: "Fast `kubectl exec` with fuzzy pod selection."
     description: "Select a pod with fzf and run kubectl exec (shell or command) in it."
     url_template: "https://github.com/estebanmilaho/kubeexec/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
-    commit_msg_template: "Update krew manifest for {{ .Tag }}"
-    repository:
-      owner: estebanmilaho
-      name: kubeexec
-      branch: "krew-{{ .Tag }}"
-      pull_request:
-        enabled: true
-        draft: false
+    skip_upload: true

@@ -26,6 +26,7 @@ func main() {
 	var confirmContext bool
 	var nonInteractive bool
 	var ignoreFzf bool
+	var allNamespaces bool
 	pflag.BoolVarP(&showVersion, "version", "v", false, "print version and exit")
 	pflag.BoolVarP(&showHelp, "help", "h", false, "show this message")
 	pflag.StringVar(&context, "context", "", "kubernetes context (overrides current context)")
@@ -35,6 +36,7 @@ func main() {
 	pflag.StringVarP(&namespace, "namespace", "n", "", "kubernetes namespace (defaults to current context/namespace)")
 	pflag.StringVarP(&container, "container", "c", "", "container name (defaults to pod's default)")
 	pflag.StringVarP(&selector, "selector", "l", "", "label selector for pods (e.g. app=api)")
+	pflag.BoolVarP(&allNamespaces, "all-namespaces", "A", false, "list pods across all namespaces")
 	pflag.BoolVar(&dryRun, "dry-run", false, "print kubectl command without executing")
 	pflag.Var(newConfirmBoolFlag(&confirmContext), "confirm-context", "confirm when context/namespace looks like prod (values: true/True/1/on/ON/false/False/0/off/OFF; env: KUBEEXEC_CONFIRM_CONTEXT; config: ~/.config/kubeexec/kubeexec.toml, TOML boolean)")
 	if f := pflag.Lookup("confirm-context"); f != nil {
@@ -55,6 +57,7 @@ func main() {
 		fmt.Fprintln(os.Stdout, "  kubeexec <POD> -c <NAME>          : exec into a specific container in a pod")
 		fmt.Fprintln(os.Stdout, "  kubeexec -n <NS> -c <NAME>        : specify both namespace and container")
 		fmt.Fprintln(os.Stdout, "  kubeexec -n <NS> -l <SEL>         : specify both namespace and selector")
+		fmt.Fprintln(os.Stdout, "  kubeexec -A, --all-namespaces     : select a pod across all namespaces")
 		fmt.Fprintln(os.Stdout, "  kubeexec version, -v, --version   : print version and exit")
 		fmt.Fprintln(os.Stdout, "  kubeexec -h, --help               : show this message")
 		fmt.Fprintln(os.Stdout, "")
@@ -140,7 +143,7 @@ func main() {
 		return
 	}
 
-	if err := cmdutil.Run(context, namespace, container, selector, pod, commandArgs, dryRun, contextRequested, confirmContextEnabled, nonInteractiveEnabled, ignoreFzfEnabled); err != nil {
+	if err := cmdutil.Run(context, namespace, container, selector, pod, commandArgs, dryRun, contextRequested, confirmContextEnabled, nonInteractiveEnabled, ignoreFzfEnabled, allNamespaces); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}

@@ -32,3 +32,42 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+      - name: Update krew manifest in repo
+        env:
+          TAG: ${{ github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ ! -f dist/krew/kubeexec.yaml ]; then
+            echo "dist/krew/kubeexec.yaml not found"
+            exit 1
+          fi
+
+          tmp_manifest="$(mktemp)"
+          cp dist/krew/kubeexec.yaml "${tmp_manifest}"
+
+          BRANCH="automation/krew-manifest-${TAG}"
+          git fetch origin "${DEFAULT_BRANCH}"
+          git checkout -B "${DEFAULT_BRANCH}" "origin/${DEFAULT_BRANCH}"
+          git checkout -b "${BRANCH}"
+
+          mkdir -p .krew
+          cp "${tmp_manifest}" .krew/kubeexec.yaml
+
+          if git diff --quiet -- .krew/kubeexec.yaml; then
+            echo "krew manifest unchanged"
+            exit 0
+          fi
+
+          git add .krew/kubeexec.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update krew manifest for ${TAG}"
+          git push -u origin "${BRANCH}"
+
+          gh pr create \
+            --base "${DEFAULT_BRANCH}" \
+            --head "${BRANCH}" \
+            --title "Update krew manifest for ${TAG}" \
+            --body "Automated update of .krew/kubeexec.yaml for ${TAG}."

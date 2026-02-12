@@ -44,6 +44,7 @@ func GetContexts() ([]string, error) {
 
 type PodItem struct {
 	Name    string
+	Namespace string
 	Ready   string
 	Status  string
 	Display string
@@ -59,9 +60,15 @@ func CurrentNamespace(context string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-func GetPods(context, namespace, selector string) ([]PodItem, error) {
-	args := []string{"get", "pods", "-o", "custom-columns=NAME:.metadata.name,READY:.status.containerStatuses[*].ready,STATUS:.status.phase", "--no-headers"}
-	if namespace != "" {
+func GetPods(context, namespace, selector string, allNamespaces bool) ([]PodItem, error) {
+	columns := "NAME:.metadata.name,READY:.status.containerStatuses[*].ready,STATUS:.status.phase"
+	if allNamespaces {
+		columns = "NAMESPACE:.metadata.namespace," + columns
+	}
+	args := []string{"get", "pods", "-o", "custom-columns=" + columns, "--no-headers"}
+	if allNamespaces {
+		args = append(args, "-A")
+	} else if namespace != "" {
 		args = append(args, "-n", namespace)
 	}
 	if selector != "" {
@@ -74,6 +81,7 @@ func GetPods(context, namespace, selector string) ([]PodItem, error) {
 	}
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 	var pods []PodItem
+	maxNamespace := 0
 	maxName := 0
 	maxReady := 0
 	maxStatus := 0
@@ -86,21 +94,43 @@ func GetPods(context, namespace, selector string) ([]PodItem, error) {
 		if len(fields) == 0 {
 			continue
 		}
-		name := fields[0]
+		namespaceValue := ""
+		name := ""
 		readyRaw := ""
 		status := ""
-		if len(fields) > 1 {
-			readyRaw = fields[1]
-		}
-		if len(fields) > 2 {
-			status = fields[2]
+		if allNamespaces {
+			if len(fields) > 0 {
+				namespaceValue = fields[0]
+			}
+			if len(fields) > 1 {
+				name = fields[1]
+			}
+			if len(fields) > 2 {
+				readyRaw = fields[2]
+			}
+			if len(fields) > 3 {
+				status = fields[3]
+			}
+		} else {
+			name = fields[0]
+			if len(fields) > 1 {
+				readyRaw = fields[1]
+			}
+			if len(fields) > 2 {
+				status = fields[2]
+			}
+			namespaceValue = namespace
 		}
 		ready := formatReady(readyRaw)
 		pods = append(pods, PodItem{
-			Name:   name,
-			Ready:  ready,
-			Status: status,
+			Name:      name,
+			Namespace: namespaceValue,
+			Ready:     ready,
+			Status:    status,
 		})
+		if len(namespaceValue) > maxNamespace {
+			maxNamespace = len(namespaceValue)
+		}
 		if len(name) > maxName {
 			maxName = len(name)
 		}
@@ -112,7 +142,11 @@ func GetPods(context, namespace, selector string) ([]PodItem, error) {
 		}
 	}
 	for i := range pods {
-		pods[i].Display = fmt.Sprintf("%-*s  %-*s  %-*s", maxName, pods[i].Name, maxReady, pods[i].Ready, maxStatus, pods[i].Status)
+		if allNamespaces {
+			pods[i].Display = fmt.Sprintf("%-*s  %-*s  %-*s  %-*s", maxNamespace, pods[i].Namespace, maxName, pods[i].Name, maxReady, pods[i].Ready, maxStatus, pods[i].Status)
+		} else {
+			pods[i].Display = fmt.Sprintf("%-*s  %-*s  %-*s", maxName, pods[i].Name, maxReady, pods[i].Ready, maxStatus, pods[i].Status)
+		}
 	}
 	return pods, nil
 }

@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func Run(contextArg, namespace, container, selector, podArg string, command []string, dryRun bool, contextRequested bool, confirmContext bool, nonInteractive bool, ignoreFzf bool) error {
+func Run(contextArg, namespace, container, selector, podArg string, command []string, dryRun bool, contextRequested bool, confirmContext bool, nonInteractive bool, ignoreFzf bool, allNamespaces bool) error {
 	if _, err := exec.LookPath("kubectl"); err != nil {
 		return fmt.Errorf("kubectl not found")
 	}
@@ -50,7 +50,11 @@ func Run(contextArg, namespace, container, selector, podArg string, command []st
 		}
 	}
 
-	pods, err := GetPods(context, namespace, selector)
+	if allNamespaces {
+		namespace = ""
+	}
+
+	pods, err := GetPods(context, namespace, selector, allNamespaces)
 	if err != nil {
 		return err
 	}
@@ -59,11 +63,12 @@ func Run(contextArg, namespace, container, selector, podArg string, command []st
 	}
 
 	pod := ""
+	podNamespace := namespace
 	if podArg == "" {
 		if ignoreFzf {
 			return fmt.Errorf("pod not specified and fzf is disabled; provide a pod name or enable fzf")
 		}
-		header := buildPodHeader(context, namespace, selector, "")
+		header := buildPodHeader(context, namespace, selector, "", allNamespaces)
 		if err := ensureFzf(ignoreFzf, "pod"); err != nil {
 			return err
 		}
@@ -74,11 +79,23 @@ func Run(contextArg, namespace, container, selector, podArg string, command []st
 		if choice == "" {
 			return fmt.Errorf("no pod selected")
 		}
-		pod = podNameFromChoice(choice)
-		if pod == "" {
+		selected, ok := podFromChoice(pods, choice)
+		if !ok {
 			return fmt.Errorf("no pod selected")
 		}
-	} else if podExists(pods, podArg) {
+		pod = selected.Name
+		podNamespace = selected.Namespace
+	} else if allNamespaces && strings.Contains(podArg, "/") {
+		ns, name, ok := splitPodNamespaceArg(podArg)
+		if !ok {
+			return fmt.Errorf("invalid pod argument %q (expected namespace/pod)", podArg)
+		}
+		if !podExistsInNamespace(pods, ns, name) {
+			return fmt.Errorf("pod %q not found in namespace %q", name, ns)
+		}
+		pod = name
+		podNamespace = ns
+	} else if podExists(pods, podArg) && !allNamespaces {
 		pod = podArg
 	} else {
 		matches := filterPodsByQuery(pods, podArg)
@@ -87,11 +104,15 @@ func Run(contextArg, namespace, container, selector, podArg string, command []st
 		}
 		if len(matches) == 1 {
 			pod = matches[0].Name
+			podNamespace = matches[0].Namespace
 		} else {
 			if ignoreFzf {
+				if allNamespaces {
+					return fmt.Errorf("pod query %q matches multiple entries and fzf is disabled; provide namespace/pod or enable fzf", podArg)
+				}
 				return fmt.Errorf("pod query %q matches multiple entries and fzf is disabled; provide a full pod name or enable fzf", podArg)
 			}
-			header := buildPodHeader(context, namespace, selector, "pod: "+podArg)
+			header := buildPodHeader(context, namespace, selector, "pod: "+podArg, allNamespaces)
 			if err := ensureFzf(ignoreFzf, "pod"); err != nil {
 				return err
 			}
@@ -102,14 +123,19 @@ func Run(contextArg, namespace, container, selector, podArg string, command []st
 			if choice == "" {
 				return fmt.Errorf("no pod selected")
 			}
-			pod = podNameFromChoice(choice)
-			if pod == "" {
+			selected, ok := podFromChoice(matches, choice)
+			if !ok {
 				return fmt.Errorf("no pod selected")
 			}
+			pod = selected.Name
+			podNamespace = selected.Namespace
 		}
 	}
 
-	containers, defaultContainer, err := GetPodContainers(context, namespace, pod)
+	if podNamespace == "" {
+		podNamespace = namespace
+	}
+	containers, defaultContainer, err := GetPodContainers(context, podNamespace, pod)
 	if err != nil {
 		return err
 	}
@@ -121,15 +147,15 @@ func Run(contextArg, namespace, container, selector, podArg string, command []st
 		if !contains(containers, container) {
 			return fmt.Errorf("container %q not found in pod %q (available: %s)", container, pod, strings.Join(containers, ", "))
 		}
-		return execOrPrint(context, namespace, pod, container, command, dryRun, confirmContext, nonInteractive)
+		return execOrPrint(context, podNamespace, pod, container, command, dryRun, confirmContext, nonInteractive)
 	}
 
 	if len(containers) == 1 {
-		return execOrPrint(context, namespace, pod, containers[0], command, dryRun, confirmContext, nonInteractive)
+		return execOrPrint(context, podNamespace, pod, containers[0], command, dryRun, confirmContext, nonInteractive)
 	}
 	if defaultContainer != "" {
 		fmt.Fprintf(os.Stderr, "note: pod has multiple containers (%s); using default %q. Use -c to select another.\n", strings.Join(containers, ", "), defaultContainer)
-		return execOrPrint(context, namespace, pod, defaultContainer, command, dryRun, confirmContext, nonInteractive)
+		return execOrPrint(context, podNamespace, pod, defaultContainer, command, dryRun, confirmContext, nonInteractive)
 	}
 
 	if ignoreFzf {
@@ -146,7 +172,7 @@ func Run(contextArg, namespace, container, selector, podArg string, command []st
 		return fmt.Errorf("no container selected")
 	}
 
-	return execOrPrint(context, namespace, pod, containerChoice, command, dryRun, confirmContext, nonInteractive)
+	return execOrPrint(context, podNamespace, pod, containerChoice, command, dryRun, confirmContext, nonInteractive)
 }
 
 func contains(items []string, item string) bool {
@@ -199,20 +225,45 @@ func podDisplays(pods []PodItem) []string {
 	return displays
 }
 
-func podNameFromChoice(choice string) string {
-	fields := strings.Fields(choice)
-	if len(fields) == 0 {
-		return ""
+func podFromChoice(pods []PodItem, choice string) (PodItem, bool) {
+	for _, pod := range pods {
+		if pod.Display == choice {
+			return pod, true
+		}
 	}
-	return fields[0]
+	return PodItem{}, false
 }
 
-func buildPodHeader(context, namespace, selector, podQuery string) string {
+func splitPodNamespaceArg(value string) (string, string, bool) {
+	parts := strings.SplitN(value, "/", 2)
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	ns := strings.TrimSpace(parts[0])
+	name := strings.TrimSpace(parts[1])
+	if ns == "" || name == "" {
+		return "", "", false
+	}
+	return ns, name, true
+}
+
+func podExistsInNamespace(pods []PodItem, namespace, name string) bool {
+	for _, pod := range pods {
+		if pod.Name == name && pod.Namespace == namespace {
+			return true
+		}
+	}
+	return false
+}
+
+func buildPodHeader(context, namespace, selector, podQuery string, allNamespaces bool) string {
 	var parts []string
 	if context != "" {
 		parts = append(parts, "context: "+context)
 	}
-	if namespace != "" {
+	if allNamespaces {
+		parts = append(parts, "namespace: all")
+	} else if namespace != "" {
 		parts = append(parts, "namespace: "+namespace)
 	}
 	if selector != "" {
