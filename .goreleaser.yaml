@@ -11,7 +11,8 @@ builds:
     goarch: [amd64, arm64]
 
 archives:
-  - formats: [tar.gz]
+  - name_template: "{{ .ProjectName }}_{{ .Tag }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
     files:
       - LICENSE
       - README.md

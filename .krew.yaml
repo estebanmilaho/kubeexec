@@ -15,23 +15,23 @@ spec:
         matchLabels:
           os: darwin
           arch: amd64
-      {{addURIAndSha "https://github.com/estebanmilaho/kubeexec/releases/download/{{ .TagName }}/kubeexec_{{ .TagName | trimPrefix \"v\" }}_darwin_amd64.tar.gz" .TagName | indent 6}}
+      {{addURIAndSha "https://github.com/estebanmilaho/kubeexec/releases/download/{{ .TagName }}/kubeexec_{{ .TagName }}_darwin_amd64.tar.gz" .TagName | indent 6}}
       bin: kubeexec
     - selector:
         matchLabels:
           os: darwin
           arch: arm64
-      {{addURIAndSha "https://github.com/estebanmilaho/kubeexec/releases/download/{{ .TagName }}/kubeexec_{{ .TagName | trimPrefix \"v\" }}_darwin_arm64.tar.gz" .TagName | indent 6}}
+      {{addURIAndSha "https://github.com/estebanmilaho/kubeexec/releases/download/{{ .TagName }}/kubeexec_{{ .TagName }}_darwin_arm64.tar.gz" .TagName | indent 6}}
       bin: kubeexec
     - selector:
         matchLabels:
           os: linux
           arch: amd64
-      {{addURIAndSha "https://github.com/estebanmilaho/kubeexec/releases/download/{{ .TagName }}/kubeexec_{{ .TagName | trimPrefix \"v\" }}_linux_amd64.tar.gz" .TagName | indent 6}}
+      {{addURIAndSha "https://github.com/estebanmilaho/kubeexec/releases/download/{{ .TagName }}/kubeexec_{{ .TagName }}_linux_amd64.tar.gz" .TagName | indent 6}}
       bin: kubeexec
     - selector:
         matchLabels:
           os: linux
           arch: arm64
-      {{addURIAndSha "https://github.com/estebanmilaho/kubeexec/releases/download/{{ .TagName }}/kubeexec_{{ .TagName | trimPrefix \"v\" }}_linux_arm64.tar.gz" .TagName | indent 6}}
+      {{addURIAndSha "https://github.com/estebanmilaho/kubeexec/releases/download/{{ .TagName }}/kubeexec_{{ .TagName }}_linux_arm64.tar.gz" .TagName | indent 6}}
       bin: kubeexec
