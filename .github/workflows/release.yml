@@ -39,13 +39,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          if [ ! -f dist/krew/kubeexec.yaml ]; then
-            echo "dist/krew/kubeexec.yaml not found"
+          if [ ! -f dist/krew/xc.yaml ]; then
+            echo "dist/krew/xc.yaml not found"
             exit 1
           fi
 
           tmp_manifest="$(mktemp)"
-          cp dist/krew/kubeexec.yaml "${tmp_manifest}"
+          cp dist/krew/xc.yaml "${tmp_manifest}"
 
           BRANCH="automation/krew-manifest-${TAG}"
           git fetch origin "${DEFAULT_BRANCH}"
@@ -53,14 +53,14 @@ jobs:
           git checkout -b "${BRANCH}"
 
           mkdir -p .krew
-          cp "${tmp_manifest}" .krew/kubeexec.yaml
+          cp "${tmp_manifest}" .krew/xc.yaml
 
-          if git diff --quiet -- .krew/kubeexec.yaml; then
+          if git diff --quiet -- .krew/xc.yaml; then
             echo "krew manifest unchanged"
             exit 0
           fi
 
-          git add .krew/kubeexec.yaml
+          git add .krew/xc.yaml
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "Update krew manifest for ${TAG}"
@@ -70,4 +70,4 @@ jobs:
             --base "${DEFAULT_BRANCH}" \
             --head "${BRANCH}" \
             --title "Update krew manifest for ${TAG}" \
-            --body "Automated update of .krew/kubeexec.yaml for ${TAG}."
+            --body "Automated update of .krew/xc.yaml for ${TAG}."

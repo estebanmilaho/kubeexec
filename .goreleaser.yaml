@@ -43,7 +43,7 @@ brews:
       system "#{bin}/kubeexec", "-version"
 
 krews:
-  - name: kubeexec
+  - name: xc
     ids:
       - default
     homepage: https://github.com/estebanmilaho/kubeexec
