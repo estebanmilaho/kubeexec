@@ -136,6 +136,33 @@ func TestFilterPodsByQuery(t *testing.T) {
 	}
 }
 
+func TestFilterPodsByExactName(t *testing.T) {
+	pods := []PodItem{
+		{Name: "api"},
+		{Name: "api-server"},
+		{Name: "api"},
+		{Name: "worker"},
+	}
+
+	tests := []struct {
+		name  string
+		query string
+		want  int
+	}{
+		{"exact match count", "api", 2},
+		{"no match", "missing", 0},
+		{"exact single", "worker", 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := filterPodsByExactName(pods, tt.query)
+			if len(got) != tt.want {
+				t.Errorf("filterPodsByExactName(pods, %q) returned %d results, want %d", tt.query, len(got), tt.want)
+			}
+		})
+	}
+}
+
 func TestFilterByQuery(t *testing.T) {
 	items := []string{"prod-cluster", "staging-cluster", "dev-cluster"}
 

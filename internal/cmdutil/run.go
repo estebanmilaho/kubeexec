@@ -57,6 +57,10 @@ func Run(opts RunOptions) error {
 		}
 	}
 
+	if allNamespaces && namespace != "" {
+		return fmt.Errorf("cannot use --all-namespaces with --namespace")
+	}
+
 	if namespace == "" {
 		var err error
 		namespace, err = CurrentNamespace(context)
@@ -115,6 +119,42 @@ func Run(opts RunOptions) error {
 		podNamespace = ns
 	} else if podExists(pods, podArg) && !allNamespaces {
 		pod = podArg
+	} else if allNamespaces {
+		exact := filterPodsByExactName(pods, podArg)
+		if len(exact) == 1 {
+			pod = exact[0].Name
+			podNamespace = exact[0].Namespace
+		} else {
+			matches := filterPodsByQuery(pods, podArg)
+			if len(matches) == 0 {
+				return fmt.Errorf("no pods match %q", podArg)
+			}
+			if len(matches) == 1 {
+				pod = matches[0].Name
+				podNamespace = matches[0].Namespace
+			} else {
+				if ignoreFzf {
+					return fmt.Errorf("pod query %q matches multiple entries and fzf is disabled; provide namespace/pod or enable fzf", podArg)
+				}
+				if err := checkFzf(); err != nil {
+					return err
+				}
+				header := buildPodHeader(context, namespace, selector, "pod: "+podArg, allNamespaces)
+				choice, err := ChooseWithFzf(podDisplays(matches), header)
+				if err != nil {
+					return err
+				}
+				if choice == "" {
+					return fmt.Errorf("no pod selected")
+				}
+				selected, ok := podFromChoice(matches, choice)
+				if !ok {
+					return fmt.Errorf("no pod selected")
+				}
+				pod = selected.Name
+				podNamespace = selected.Namespace
+			}
+		}
 	} else {
 		matches := filterPodsByQuery(pods, podArg)
 		if len(matches) == 0 {
@@ -216,6 +256,16 @@ func filterPodsByQuery(pods []PodItem, query string) []PodItem {
 	var matches []PodItem
 	for _, pod := range pods {
 		if strings.Contains(pod.Name, query) {
+			matches = append(matches, pod)
+		}
+	}
+	return matches
+}
+
+func filterPodsByExactName(pods []PodItem, name string) []PodItem {
+	var matches []PodItem
+	for _, pod := range pods {
+		if pod.Name == name {
 			matches = append(matches, pod)
 		}
 	}
