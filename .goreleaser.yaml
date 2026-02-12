@@ -41,13 +41,3 @@ brews:
       fish_completion.install "completion/kubeexec.fish"
     test: |
       system "#{bin}/kubeexec", "-version"
-
-krews:
-  - name: xc
-    ids:
-      - default
-    homepage: https://github.com/estebanmilaho/kubeexec
-    short_description: "Fast `kubectl exec` with fuzzy pod selection."
-    description: "Select a pod with fzf and run kubectl exec (shell or command) in it."
-    url_template: "https://github.com/estebanmilaho/kubeexec/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
-    skip_upload: true

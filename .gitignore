@@ -1,3 +1,4 @@
 .env
 kubeexec
 .DS_Store
+dist/*
