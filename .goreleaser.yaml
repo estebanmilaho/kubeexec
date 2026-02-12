@@ -13,6 +13,8 @@ builds:
 archives:
   - formats: [tar.gz]
     files:
+      - LICENSE
+      - README.md
       - completion/kubeexec.bash
       - completion/_kubeexec
       - completion/kubeexec.fish

@@ -7,6 +7,9 @@ spec:
   homepage: "https://github.com/estebanmilaho/kubeexec"
   shortDescription: "Fast `kubectl exec` with fuzzy pod selection."
   description: "Select a pod with fzf and run kubectl exec (shell or command) in it."
+  files:
+    - from: LICENSE
+      to: .
   platforms:
     - selector:
         matchLabels:
