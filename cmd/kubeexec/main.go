@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -47,19 +48,24 @@ func main() {
 		f.NoOptDefVal = "true"
 	}
 	pflag.Usage = func() {
+		cmd := displayName()
 		fmt.Fprintln(os.Stdout, "USAGE:")
-		fmt.Fprintln(os.Stdout, "  kubeexec                          : select a pod and exec into it")
-		fmt.Fprintln(os.Stdout, "  kubeexec <POD>                    : exec into a specific pod (exact or partial)")
-		fmt.Fprintln(os.Stdout, "  kubeexec --context <CTX>          : use a specific kubernetes context (exact or partial)")
-		fmt.Fprintln(os.Stdout, "  kubeexec --context                : select a context from a list")
-		fmt.Fprintln(os.Stdout, "  kubeexec <POD> -- <CMD> [ARGS]     : run a command in a specific pod")
-		fmt.Fprintln(os.Stdout, "  kubeexec -- <CMD> [ARGS]           : select a pod, then run a command")
-		fmt.Fprintln(os.Stdout, "  kubeexec <POD> -c <NAME>          : exec into a specific container in a pod")
-		fmt.Fprintln(os.Stdout, "  kubeexec -n <NS> -c <NAME>        : specify both namespace and container")
-		fmt.Fprintln(os.Stdout, "  kubeexec -n <NS> -l <SEL>         : specify both namespace and selector")
-		fmt.Fprintln(os.Stdout, "  kubeexec -A, --all-namespaces     : select a pod across all namespaces")
-		fmt.Fprintln(os.Stdout, "  kubeexec version, -v, --version   : print version and exit")
-		fmt.Fprintln(os.Stdout, "  kubeexec -h, --help               : show this message")
+		fmt.Fprintf(os.Stdout, "  %s                          : select a pod and exec into it\n", cmd)
+		fmt.Fprintf(os.Stdout, "  %s <POD>                    : exec into a specific pod (exact or partial)\n", cmd)
+		fmt.Fprintf(os.Stdout, "  %s --context <CTX>          : use a specific kubernetes context (exact or partial)\n", cmd)
+		fmt.Fprintf(os.Stdout, "  %s --context                : select a context from a list\n", cmd)
+		fmt.Fprintf(os.Stdout, "  %s <POD> -- <CMD> [ARGS]     : run a command in a specific pod\n", cmd)
+		fmt.Fprintf(os.Stdout, "  %s -- <CMD> [ARGS]           : select a pod, then run a command\n", cmd)
+		fmt.Fprintf(os.Stdout, "  %s <POD> -c <NAME>          : exec into a specific container in a pod\n", cmd)
+		fmt.Fprintf(os.Stdout, "  %s -n <NS> -c <NAME>        : specify both namespace and container\n", cmd)
+		fmt.Fprintf(os.Stdout, "  %s -n <NS> -l <SEL>         : specify both namespace and selector\n", cmd)
+		fmt.Fprintf(os.Stdout, "  %s -A, --all-namespaces     : select a pod across all namespaces\n", cmd)
+		fmt.Fprintf(os.Stdout, "  %s version, -v, --version   : print version and exit\n", cmd)
+		fmt.Fprintf(os.Stdout, "  %s -h, --help               : show this message\n", cmd)
+		fmt.Fprintln(os.Stdout, "")
+		fmt.Fprintln(os.Stdout, "ALIASES:")
+		fmt.Fprintln(os.Stdout, "  kubeexec")
+		fmt.Fprintln(os.Stdout, "  kubectl xc")
 		fmt.Fprintln(os.Stdout, "")
 		fmt.Fprintln(os.Stdout, "OPTIONS:")
 		pflag.CommandLine.SetOutput(os.Stdout)
@@ -160,6 +166,15 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
+}
+
+func displayName() string {
+	name := filepath.Base(os.Args[0])
+	const pluginPrefix = "kubectl-"
+	if strings.HasPrefix(name, pluginPrefix) {
+		return "kubectl " + strings.TrimPrefix(name, pluginPrefix)
+	}
+	return "kubeexec"
 }
 
 func normalizeContextArgs(args []string) []string {
