@@ -21,6 +21,15 @@ brew tap estebanmilaho/kubeexec
 brew install kubeexec
 ```
 
+### Krew (kubectl plugin)
+Krew usage works after one of these is true:
+- the plugin is accepted into the official `krew-index`, then install with `kubectl krew install xc`
+- you install manually from a local manifest
+
+```bash
+kubectl krew install xc
+```
+
 ### From GitHub releases
 Download the appropriate archive from the releases page and place `kubeexec` in your `PATH`.
 
@@ -31,6 +40,10 @@ sudo mv kubeexec /usr/local/bin/
 ```
 
 ## Usage
+Invocation forms:
+- `kubeexec ...`
+- `kubectl xc ...`
+
 ```bash
 kubeexec
 kubeexec <POD>
@@ -39,9 +52,9 @@ kubeexec --context
 kubeexec <POD> -c <NAME>
 kubeexec -n <NS> -l <SEL>
 kubeexec -A
+kubeexec -A <NAMESPACE>/<POD>
 kubeexec -- <CMD> [ARGS]
 kubeexec <POD> -- <CMD> [ARGS]
-kubeexec -- <CMD> [ARGS]
 ```
 
 ## Examples
@@ -61,16 +74,22 @@ kubeexec -n kube-system -l k8s-app=kube-dns
 # Select a pod across all namespaces
 kubeexec -A
 
+# Select a pod across all namespaces without picker
+kubeexec -A kube-system/coredns-abc
+
 # Non-interactive execution (no -i/-t)
 kubeexec --non-interactive app-123 -- cat /etc/os-release
 ```
 
 ## Behavior
 - Uses the current context/namespace by default.
+- A kubectl context must be set unless `--context` is provided.
 - You can override context and namespace with `--context` and `--namespace`.
 - Use `-A/--all-namespaces` to select pods across all namespaces (namespace is shown in the picker).
+- In `-A` mode, you can provide `<namespace>/<pod>` for direct selection without picker.
 - If multiple pods match and `fzf` is enabled, you will be prompted to choose.
-- If the pod has multiple containers and no default, you will be prompted to choose.
+- If `fzf` is disabled and selection is ambiguous, kubeexec exits with an error.
+- If a pod has multiple containers, the default is used when available; otherwise you will be prompted to choose.
 - `--` passes a command directly to `kubectl exec` instead of starting a shell.
 
 ## Configuration
@@ -98,8 +117,10 @@ Environment variables:
 - `KUBEEXEC_IGNORE_FZF`
 
 Accepted values for env vars and explicit flag values: true/false, 1/0, on/off.
+Configuration precedence: flag > env var > config file.
 
 ## Notes on fzf
+- `--context` without a value uses picker mode and requires `fzf`.
 - If `fzf` is disabled and a selection is required, kubeexec fails fast with a clear error.
 - Default is `fzf` enabled.
 
