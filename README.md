@@ -97,7 +97,7 @@ Environment variables:
 - `KUBEEXEC_NON_INTERACTIVE`
 - `KUBEEXEC_IGNORE_FZF`
 
-Values accepted for env and flags: `true`, `True`, `1`, `on`, `ON`, `false`, `False`, `0`, `off`, `OFF`.
+Accepted values for env vars and explicit flag values: true/false, 1/0, on/off.
 
 ## Notes on fzf
 - If `fzf` is disabled and a selection is required, kubeexec fails fast with a clear error.
